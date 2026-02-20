@@ -1,65 +1,174 @@
-import Image from "next/image";
 
-export default function Home() {
+import Image from "next/image";
+import Link from "next/link";
+import { headers } from "next/headers";
+
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  imageUrl: string | null;
+};
+
+type ProductsResponse = {
+  products?: Product[];
+};
+
+const CATEGORIES = ["Aata & Rice", "Daal & Pulses", "Oil & Masala", "Daily Essentials"];
+
+const WHY_US = [
+  "3 KM ke andar fast home delivery",
+  "Roz ka fresh grocery stock",
+  "Seedha local shop se trusted service",
+];
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
+
+function formatINR(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+async function getProducts(): Promise<Product[]> {
+  try {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const protocol = h.get("x-forwarded-proto") ?? "http";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (host ? `${protocol}://${host}` : "http://localhost:3000");
+
+    const res = await fetch(`${baseUrl}/api/products`, {
+      next: { revalidate: 60 },
+    });
+
+    if (!res.ok) return [];
+
+    const data = (await res.json()) as ProductsResponse;
+    return Array.isArray(data.products) ? data.products : [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function CustomerHomePage() {
+  const products = await getProducts();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-white text-neutral-900">
+      <section className="border-b border-neutral-200 bg-neutral-50">
+        <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Vivek Chaudhary Mohanpur Wale
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-3 text-base text-neutral-600 sm:text-lg">
+            3 KM ke andar Home Delivery
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/products"
+            className="mt-6 inline-flex rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Order Now
+          </Link>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <h2 className="text-2xl font-semibold">Popular Categories</h2>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {CATEGORIES.map((category) => (
+            <div
+              key={category}
+              className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm font-medium"
+            >
+              {category}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h2 className="text-2xl font-semibold">Products</h2>
+          <Link href="/products" className="text-sm font-medium text-neutral-700 hover:text-black">
+            View all
+          </Link>
+        </div>
+
+        {products.length === 0 ? (
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-6 text-sm text-neutral-600">
+            Products are currently unavailable. Please check again shortly.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {products.slice(0, 12).map((product) => {
+              const inStock = product.stock > 0;
+
+              return (
+                <article
+                  key={product.id}
+                  className="overflow-hidden rounded-xl border border-neutral-200 bg-white"
+                >
+                  <div className="relative aspect-square w-full bg-neutral-100">
+                    <Image
+                      src={product.imageUrl || FALLBACK_IMAGE}
+                      alt={product.name}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      className="object-cover"
+                    />
+                  </div>
+
+                  <div className="space-y-2 p-3">
+                    <h3 className="line-clamp-2 text-sm font-medium">{product.name}</h3>
+                    <p className="text-sm font-semibold">{formatINR(product.price)}</p>
+                    <p className={`text-xs ${inStock ? "text-green-700" : "text-red-600"}`}>
+                      {inStock ? `In Stock (${product.stock})` : "Out of Stock"}
+                    </p>
+                    <Link
+                      href="/products"
+                      className={`inline-flex w-full items-center justify-center rounded-md px-3 py-2 text-xs font-medium ${
+                        inStock
+                          ? "bg-neutral-900 text-white hover:bg-neutral-700"
+                          : "bg-neutral-300 text-neutral-600"
+                      }`}
+                      aria-disabled={!inStock}
+                    >
+                      Add to Cart
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="border-y border-neutral-200 bg-neutral-50">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <h2 className="text-2xl font-semibold">Why Choose Us</h2>
+          <ul className="mt-5 grid gap-3 sm:grid-cols-3">
+            {WHY_US.map((item) => (
+              <li key={item} className="rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm">
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <footer className="bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-neutral-600 sm:px-6 lg:px-8">
+          <p className="font-medium text-neutral-900">Vivek Chaudhary Mohanpur Wale</p>
+          <p className="mt-1">Contact: +91 90000 00000</p>
+          <p className="mt-1">Address: Mohanpur, Local Market Road</p>
+        </div>
+      </footer>
+    </main>
   );
 }
