@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
+import { parseOrderPaymentMeta } from "@/lib/order-payment-meta";
 
 type AdminOrderDetail = {
   id: string;
@@ -104,6 +105,7 @@ export default function AdminOrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const pricing = order ? parseOrderPaymentMeta(order.paymentNote) : null;
 
   const loadOrder = useCallback(async () => {
     try {
@@ -267,6 +269,20 @@ export default function AdminOrderDetailPage() {
                 </span>
               </p>
               <p className="text-neutral-700">
+                Subtotal:{" "}
+                <span className="font-semibold text-neutral-900">
+                  {formatINR(pricing?.subtotalAmount ?? order.total)}
+                </span>
+              </p>
+              <p className="text-neutral-700">
+                Delivery:{" "}
+                <span className="font-semibold text-neutral-900">
+                  {(pricing?.deliveryCharge ?? 0) > 0
+                    ? formatINR(pricing?.deliveryCharge ?? 0)
+                    : "FREE"}
+                </span>
+              </p>
+              <p className="text-neutral-700">
                 Total:{" "}
                 <span className="font-semibold text-green-700">
                   {formatINR(order.total)}
@@ -281,6 +297,14 @@ export default function AdminOrderDetailPage() {
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href={`/api/orders/${order.id}/packing-slip`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+              >
+                Print Packing Slip
+              </a>
               <button
                 type="button"
                 onClick={() => void updatePaymentStatus("VERIFIED")}

@@ -5,8 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { CartItem, type CartLineItem } from "@/components/cart/CartItem";
 import { Button } from "@/components/ui/Button";
-
-const CART_STORAGE_KEY = "customer_cart";
+import { CART_STORAGE_KEY } from "@/lib/customer-storage";
+import {
+  calculateOrderPriceBreakdown,
+  DELIVERY_CHARGE_BELOW_THRESHOLD,
+  FREE_DELIVERY_MIN_ORDER,
+} from "@/lib/order-pricing";
 
 function formatINR(value: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -58,7 +62,8 @@ export default function CartPage() {
     () => items.reduce((sum, item) => sum + item.quantity, 0),
     [items],
   );
-  const delivery = items.length > 0 ? 0 : 0;
+  const pricing = useMemo(() => calculateOrderPriceBreakdown(subtotal), [subtotal]);
+  const delivery = items.length > 0 ? pricing.deliveryCharge : 0;
   const discount = appliedCoupon === "ATTA30" && subtotal >= 200 ? 30 : 0;
   const total = Math.max(0, subtotal + delivery - discount);
   const lowStockItem = useMemo(
@@ -163,7 +168,9 @@ export default function CartPage() {
             </div>
             <div className="space-y-4 p-6">
               <div className="rounded-2xl bg-green-100 px-4 py-3 text-lg font-bold text-green-800">
-                🚴 3 KM ke andar FREE Delivery!
+                🚴 {delivery === 0
+                  ? `3 KM ke andar FREE Delivery!`
+                  : `3 KM ke andar delivery charge ₹${DELIVERY_CHARGE_BELOW_THRESHOLD}`}
               </div>
 
               <div className="grid grid-cols-[1fr_auto] gap-2">
@@ -191,7 +198,7 @@ export default function CartPage() {
               <div className="space-y-3 pt-1 text-xl text-neutral-700">
                 <div className="flex items-center justify-between">
                   <span>Subtotal ({itemCount} items)</span>
-                  <span className="font-bold text-neutral-900">₹{subtotal}</span>
+                  <span className="font-bold text-neutral-900">{formatINR(subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Delivery Charge</span>
@@ -199,13 +206,18 @@ export default function CartPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Discount ({appliedCoupon || "N/A"})</span>
-                  <span className="font-bold text-neutral-900">-₹{discount}</span>
+                  <span className="font-bold text-neutral-900">-{formatINR(discount)}</span>
                 </div>
                 <div className="h-px bg-neutral-300" />
                 <div className="flex items-center justify-between text-3xl font-extrabold text-neutral-900">
                   <span>Total Dena Hai</span>
-                  <span className="text-green-700">₹{total}</span>
+                  <span className="text-green-700">{formatINR(total)}</span>
                 </div>
+                <p className="rounded-md bg-green-50 px-2 py-1 text-xs text-green-700">
+                  {delivery === 0
+                    ? `Free delivery unlocked (order >= ₹${FREE_DELIVERY_MIN_ORDER}).`
+                    : `Add ₹${Math.max(0, FREE_DELIVERY_MIN_ORDER - subtotal)} more for free delivery.`}
+                </p>
               </div>
 
               <Button href="/checkout" className="w-full text-2xl font-extrabold" variant="primary">

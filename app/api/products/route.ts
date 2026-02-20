@@ -5,6 +5,7 @@ import { z } from "zod";
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
+import { normalizeProductImageUrl } from "@/lib/image";
 import { parseProductDescription, encodeProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
 
@@ -15,6 +16,8 @@ const createProductSchema = z.object({
   mrp: z.coerce.number().positive().optional().nullable(),
   stock: z.coerce.number().int().min(0),
   unit: z.string().trim().max(80).optional().nullable(),
+  variantGroup: z.string().trim().max(120).optional().nullable(),
+  variantRank: z.coerce.number().int().min(0).max(9999).optional().nullable(),
   discountPercent: z.coerce.number().min(0).max(90).optional().nullable(),
   isActive: z.coerce.boolean().optional().default(true),
   imageUrl: z.string().url().max(1000).optional().nullable(),
@@ -96,6 +99,8 @@ export async function GET(request: NextRequest) {
           description: parsed.description,
           mrp,
           unit: parsed.meta.unit || null,
+          variantGroup: parsed.meta.variantGroup || null,
+          variantRank: parsed.meta.variantRank ?? null,
           discountPercent,
           isActive: parsed.meta.isActive !== false,
         };
@@ -104,6 +109,8 @@ export async function GET(request: NextRequest) {
           ...product,
           mrp: product.price,
           unit: null,
+          variantGroup: null,
+          variantRank: null,
           discountPercent: 0,
           isActive: true,
         };
@@ -147,12 +154,14 @@ export async function POST(request: NextRequest) {
           description: encodeProductDescription(parsed.data.description ?? null, {
             mrp: parsed.data.mrp ?? parsed.data.price,
             unit: parsed.data.unit ?? null,
+            variantGroup: parsed.data.variantGroup ?? null,
+            variantRank: parsed.data.variantRank ?? null,
             discountPercent: parsed.data.discountPercent ?? null,
             isActive: parsed.data.isActive ?? true,
           }),
           price: parsed.data.price,
           stock: parsed.data.stock,
-          imageUrl: parsed.data.imageUrl ?? null,
+          imageUrl: normalizeProductImageUrl(parsed.data.imageUrl ?? null),
           categoryId: parsed.data.categoryId,
         },
         include: {
@@ -189,6 +198,8 @@ export async function POST(request: NextRequest) {
           description: parsedDescription.description,
           mrp: parsedDescription.meta.mrp ?? product.price,
           unit: parsedDescription.meta.unit ?? null,
+          variantGroup: parsedDescription.meta.variantGroup ?? null,
+          variantRank: parsedDescription.meta.variantRank ?? null,
           discountPercent: parsedDescription.meta.discountPercent ?? 0,
           isActive: parsedDescription.meta.isActive !== false,
         },

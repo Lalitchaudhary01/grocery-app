@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { CategoryGrid } from "@/components/category/CategoryGrid";
+import { CartReminder } from "@/components/cart/CartReminder";
 import { ProductCard, type ProductCardItem } from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/Button";
 
@@ -70,6 +71,9 @@ export default async function CustomerHomePage() {
   return (
     <div className="bg-neutral-100 pb-8">
       <section className="px-4 pt-4 sm:px-6 sm:pt-6">
+        <div className="mb-3">
+          <CartReminder />
+        </div>
         <div className="animate-rise-in overflow-hidden rounded-2xl bg-gradient-to-br from-green-700 via-green-600 to-green-500 text-white shadow-lg ring-1 ring-green-900/20">
           <div className="grid gap-6 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <div>

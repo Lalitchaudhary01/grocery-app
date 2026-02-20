@@ -3,6 +3,8 @@ export type ProductMeta = {
   unit?: string | null;
   discountPercent?: number | null;
   isActive?: boolean | null;
+  variantGroup?: string | null;
+  variantRank?: number | null;
 };
 
 export type ParsedProductDescription = {
@@ -36,12 +38,19 @@ function normalizeMeta(meta?: ProductMeta): ProductMeta {
       : meta?.isActive === null
         ? null
         : true;
+  const variantGroup = normalizeText(meta?.variantGroup);
+  const variantRank =
+    typeof meta?.variantRank === "number" && Number.isFinite(meta.variantRank)
+      ? meta.variantRank
+      : null;
 
   return {
     mrp,
     unit,
     discountPercent,
     isActive,
+    variantGroup,
+    variantRank,
   };
 }
 
@@ -58,13 +67,15 @@ export function encodeProductDescription(
 export function parseProductDescription(rawDescription: string | null | undefined): ParsedProductDescription {
   const fallback: ParsedProductDescription = {
     description: normalizeText(rawDescription),
-    meta: {
-      mrp: null,
-      unit: null,
-      discountPercent: null,
-      isActive: true,
-    },
-  };
+      meta: {
+        mrp: null,
+        unit: null,
+        discountPercent: null,
+        isActive: true,
+        variantGroup: null,
+        variantRank: null,
+      },
+    };
 
   if (!rawDescription) return fallback;
 
@@ -86,4 +97,3 @@ export function parseProductDescription(rawDescription: string | null | undefine
     return fallback;
   }
 }
-

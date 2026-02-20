@@ -29,11 +29,14 @@ function formatINR(value: number) {
 
 export default async function AdminDashboardPage() {
   const today = startOfToday();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
   const validSaleStatuses = ["CONFIRMED", "SHIPPED", "DELIVERED"] as const;
   const recentDays = getRecentDays(7);
 
   const [
     todaySaleAggregate,
+    yesterdaySaleAggregate,
     todayOrdersCount,
     pendingOrdersCount,
     totalProducts,
@@ -49,6 +52,13 @@ export default async function AdminDashboardPage() {
     prisma.order.aggregate({
       where: {
         createdAt: { gte: today },
+        status: { in: validSaleStatuses },
+      },
+      _sum: { total: true },
+    }),
+    prisma.order.aggregate({
+      where: {
+        createdAt: { gte: yesterday, lt: today },
         status: { in: validSaleStatuses },
       },
       _sum: { total: true },
@@ -140,6 +150,9 @@ export default async function AdminDashboardPage() {
   ]);
 
   const todaySales = todaySaleAggregate._sum.total ?? 0;
+  const yesterdaySales = yesterdaySaleAggregate._sum.total ?? 0;
+  const salesTrendPercent =
+    yesterdaySales <= 0 ? (todaySales > 0 ? 100 : 0) : ((todaySales - yesterdaySales) / yesterdaySales) * 100;
 
   const totalRevenueByCategoryId = new Map<string, number>();
   for (const row of categorySalesRows) {
@@ -189,6 +202,10 @@ export default async function AdminDashboardPage() {
       label: "Aaj ki Total Sale",
       value: formatINR(todaySales),
       note: `↑ ${pendingOrdersCount} pending`,
+      subNote:
+        salesTrendPercent >= 0
+          ? `↑ ${salesTrendPercent.toFixed(0)}% vs yesterday`
+          : `↓ ${Math.abs(salesTrendPercent).toFixed(0)}% vs yesterday`,
       icon: "💰",
       accent: "bg-green-500",
     },
@@ -196,6 +213,7 @@ export default async function AdminDashboardPage() {
       label: "Aaj ke Orders",
       value: String(todayOrdersCount),
       note: `↑ ${pendingOrdersCount} naye pending`,
+      subNote: `Yesterday sale: ${formatINR(yesterdaySales)}`,
       icon: "📋",
       accent: "bg-green-500",
     },
@@ -203,6 +221,7 @@ export default async function AdminDashboardPage() {
       label: "Total Products",
       value: String(totalProducts),
       note: `${outOfStockCount} out of stock`,
+      subNote: `Low stock <= 2: ${lowStockProducts.length}`,
       icon: "📦",
       accent: "bg-blue-600",
     },
@@ -210,6 +229,7 @@ export default async function AdminDashboardPage() {
       label: "Total Customers",
       value: String(totalCustomers),
       note: `↑ ${todayNewCustomers} aaj naye`,
+      subNote: "Returning customers tracked in orders",
       icon: "👥",
       accent: "bg-red-500",
     },
@@ -237,6 +257,7 @@ export default async function AdminDashboardPage() {
               <p className="text-4xl font-extrabold text-neutral-900">{stat.value}</p>
               <p className="text-xl font-semibold text-neutral-600">{stat.label}</p>
               <p className="text-base font-semibold text-green-700">{stat.note}</p>
+              <p className="text-xs text-neutral-500">{stat.subNote}</p>
             </div>
           </article>
         ))}

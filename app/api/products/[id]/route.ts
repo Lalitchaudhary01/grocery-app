@@ -5,6 +5,7 @@ import { z } from "zod";
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
+import { normalizeProductImageUrl } from "@/lib/image";
 import { encodeProductDescription, parseProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +21,8 @@ const updateProductSchema = z
     mrp: z.coerce.number().positive().optional().nullable(),
     stock: z.coerce.number().int().min(0).optional(),
     unit: z.string().trim().max(80).optional().nullable(),
+    variantGroup: z.string().trim().max(120).optional().nullable(),
+    variantRank: z.coerce.number().int().min(0).max(9999).optional().nullable(),
     discountPercent: z.coerce.number().min(0).max(90).optional().nullable(),
     isActive: z.coerce.boolean().optional(),
     imageUrl: z.string().url().max(1000).optional().nullable(),
@@ -99,6 +102,8 @@ export async function PATCH(
         parsedBody.data.description !== undefined ||
         parsedBody.data.mrp !== undefined ||
         parsedBody.data.unit !== undefined ||
+        parsedBody.data.variantGroup !== undefined ||
+        parsedBody.data.variantRank !== undefined ||
         parsedBody.data.discountPercent !== undefined ||
         parsedBody.data.isActive !== undefined
           ? encodeProductDescription(
@@ -112,6 +117,14 @@ export async function PATCH(
                   parsedBody.data.unit !== undefined
                     ? parsedBody.data.unit
                     : existingParsed.meta.unit,
+                variantGroup:
+                  parsedBody.data.variantGroup !== undefined
+                    ? parsedBody.data.variantGroup
+                    : existingParsed.meta.variantGroup,
+                variantRank:
+                  parsedBody.data.variantRank !== undefined
+                    ? parsedBody.data.variantRank
+                    : existingParsed.meta.variantRank,
                 discountPercent:
                   parsedBody.data.discountPercent !== undefined
                     ? parsedBody.data.discountPercent
@@ -131,7 +144,10 @@ export async function PATCH(
           description: nextDescription,
           price: parsedBody.data.price,
           stock: parsedBody.data.stock,
-          imageUrl: parsedBody.data.imageUrl,
+          imageUrl:
+            parsedBody.data.imageUrl !== undefined
+              ? normalizeProductImageUrl(parsedBody.data.imageUrl)
+              : undefined,
           categoryId: parsedBody.data.categoryId,
         },
         include: {
@@ -182,6 +198,8 @@ export async function PATCH(
           description: parsed.description,
           mrp: parsed.meta.mrp ?? product.price,
           unit: parsed.meta.unit ?? null,
+          variantGroup: parsed.meta.variantGroup ?? null,
+          variantRank: parsed.meta.variantRank ?? null,
           discountPercent: parsed.meta.discountPercent ?? 0,
           isActive: parsed.meta.isActive !== false,
         },

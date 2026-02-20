@@ -13,6 +13,7 @@ type Product = {
   mrp?: number;
   stock: number;
   unit?: string | null;
+  variantGroup?: string | null;
   discountPercent?: number;
   isActive?: boolean;
   imageUrl: string | null;
@@ -27,6 +28,7 @@ type ProductForm = {
   mrp: string;
   stock: string;
   unit: string;
+  variantGroup: string;
   discountPercent: string;
   isActive: "true" | "false";
   imageUrl: string;
@@ -43,6 +45,7 @@ const EMPTY_FORM: ProductForm = {
   mrp: "",
   stock: "",
   unit: "",
+  variantGroup: "",
   discountPercent: "",
   isActive: "true",
   imageUrl: "",
@@ -145,6 +148,7 @@ export default function AdminProductsPage() {
       mrp: String(Math.round(product.mrp ?? product.price)),
       stock: String(product.stock),
       unit: product.unit || "",
+      variantGroup: product.variantGroup || "",
       discountPercent: String(product.discountPercent ?? 0),
       isActive: product.isActive === false ? "false" : "true",
       imageUrl: product.imageUrl || "",
@@ -166,6 +170,7 @@ export default function AdminProductsPage() {
         mrp: form.mrp ? Number(form.mrp) : Number(form.price),
         stock: Number(form.stock),
         unit: form.unit.trim() || null,
+        variantGroup: form.variantGroup.trim() || null,
         discountPercent: form.discountPercent ? Number(form.discountPercent) : 0,
         isActive: form.isActive === "true",
         imageUrl: form.imageUrl.trim() || null,
@@ -221,6 +226,28 @@ export default function AdminProductsPage() {
       setError(deleteError instanceof Error ? deleteError.message : "Failed to delete product.");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function changeStock(product: Product, delta: number) {
+    const nextStock = Math.max(0, product.stock + delta);
+    if (nextStock === product.stock) return;
+    try {
+      setError(null);
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock: nextStock }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.error || "Failed to update stock.");
+      }
+      await loadData();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Failed to update stock.");
     }
   }
 
@@ -329,17 +356,33 @@ export default function AdminProductsPage() {
                           ) : null}
                         </td>
                         <td className="px-4 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-sm font-bold ${
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void changeStock(product, -1)}
+                              className="h-8 w-8 rounded-lg border border-neutral-300 text-lg font-bold text-neutral-700 hover:bg-neutral-100"
+                            >
+                              -
+                            </button>
+                            <span
+                              className={`rounded-full px-3 py-1 text-sm font-bold ${
                               isOut
                                 ? "bg-red-100 text-red-600"
                                 : product.stock <= 5
                                   ? "bg-amber-100 text-amber-700"
                                   : "bg-green-100 text-green-700"
-                            }`}
-                          >
-                            {product.stock} units
-                          </span>
+                              }`}
+                            >
+                              {product.stock} units
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void changeStock(product, 1)}
+                              className="h-8 w-8 rounded-lg border border-neutral-300 text-lg font-bold text-neutral-700 hover:bg-neutral-100"
+                            >
+                              +
+                            </button>
+                          </div>
                         </td>
                         <td className="px-4 py-4">
                           <span
@@ -476,6 +519,23 @@ export default function AdminProductsPage() {
                   className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
                 />
               </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-neutral-700">
+                Variant Group
+              </label>
+              <input
+                value={form.variantGroup}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, variantGroup: event.target.value }))
+                }
+                placeholder="e.g. aashirvaad-atta"
+                disabled={saving}
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Same group wale products user ko variants me dikhenge.
+              </p>
             </div>
 
             <div>

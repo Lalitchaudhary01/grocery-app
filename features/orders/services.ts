@@ -4,6 +4,7 @@ import {
   type InventoryOrderItemInput,
   type ReservedInventoryItem,
 } from "@/features/inventory/services";
+import { calculateOrderPriceBreakdown } from "@/lib/order-pricing";
 
 export interface CreateOrderInput {
   userId: string;
@@ -22,6 +23,8 @@ export interface CreatedOrderResult {
   order: {
     id: string;
     status: string;
+    subtotalAmount: number;
+    deliveryCharge: number;
     totalAmount: number;
     createdAt: Date;
     customer: {
@@ -62,7 +65,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
     }
 
     const reservedItems = await reserveInventoryStock(tx, input.items);
-    const totalAmount = calculateTotalAmount(reservedItems);
+    const subtotalAmount = calculateTotalAmount(reservedItems);
+    const priceBreakdown = calculateOrderPriceBreakdown(subtotalAmount);
 
     let hasPendingPaymentOrder = false;
     try {
@@ -115,8 +119,14 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
           addressId: savedAddress.id,
           paymentStatus: "PENDING_VERIFICATION",
           paymentMethod: "UPI_QR",
-          paymentNote: "Customer marked payment done via QR. Admin verification pending.",
-          total: totalAmount,
+          paymentNote: JSON.stringify({
+            type: "UPI_QR_PENDING",
+            message: "Customer marked payment done via QR. Admin verification pending.",
+            subtotalAmount: priceBreakdown.subtotal,
+            deliveryCharge: priceBreakdown.deliveryCharge,
+            finalAmount: priceBreakdown.total,
+          }),
+          total: priceBreakdown.total,
           items: {
             createMany: {
               data: reservedItems.map((item) => ({
@@ -142,7 +152,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
         data: {
           userId: customer.id,
           addressId: savedAddress.id,
-          total: totalAmount,
+          total: priceBreakdown.total,
           items: {
             createMany: {
               data: reservedItems.map((item) => ({
@@ -187,7 +197,9 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
       order: {
         id: order.id,
         status: order.status,
-        totalAmount,
+        subtotalAmount: priceBreakdown.subtotal,
+        deliveryCharge: priceBreakdown.deliveryCharge,
+        totalAmount: priceBreakdown.total,
         createdAt: order.createdAt,
         customer,
         items: reservedItems.map((item) => ({

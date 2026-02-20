@@ -4,6 +4,17 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import {
+  CART_STORAGE_KEY,
+  DEFAULT_ADDRESS_ID_STORAGE_KEY,
+  DELIVERY_ADDRESS_STORAGE_KEY,
+  ORDER_IDS_STORAGE_KEY,
+} from "@/lib/customer-storage";
+import {
+  calculateOrderPriceBreakdown,
+  DELIVERY_CHARGE_BELOW_THRESHOLD,
+  FREE_DELIVERY_MIN_ORDER,
+} from "@/lib/order-pricing";
 
 type CartProduct = {
   id: string;
@@ -18,13 +29,13 @@ type CartItem = {
 type CreateOrderResponse = {
   order?: {
     id: string;
+    subtotalAmount?: number;
+    deliveryCharge?: number;
+    totalAmount?: number;
   };
   error?: string;
 };
 
-const CART_STORAGE_KEY = "customer_cart";
-const ORDER_IDS_STORAGE_KEY = "customer_order_ids";
-const DELIVERY_ADDRESS_STORAGE_KEY = "customer_delivery_address_v2";
 const SHOP_UPI_ID = "8445646300@ybl";
 
 type DeliveryAddressForm = {
@@ -34,6 +45,10 @@ type DeliveryAddressForm = {
   state: string;
   postalCode: string;
   country: string;
+};
+
+type SavedAddress = DeliveryAddressForm & {
+  id: string;
 };
 
 function formatINR(value: number) {
@@ -72,32 +87,83 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStep, setPaymentStep] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
 
   useEffect(() => {
-    setItems(readCart());
-    const savedAddress = localStorage.getItem(DELIVERY_ADDRESS_STORAGE_KEY);
-    if (savedAddress) {
+    async function boot() {
+      setItems(readCart());
+      const savedAddress = localStorage.getItem(DELIVERY_ADDRESS_STORAGE_KEY);
+      if (savedAddress) {
+        try {
+          const parsed = JSON.parse(savedAddress) as Partial<DeliveryAddressForm>;
+          setDeliveryAddress((previous) => ({
+            street: parsed.street ?? previous.street,
+            phone: parsed.phone ?? previous.phone,
+            city: parsed.city ?? previous.city,
+            state: parsed.state ?? previous.state,
+            postalCode: parsed.postalCode ?? previous.postalCode,
+            country: parsed.country ?? previous.country,
+          }));
+        } catch {
+          // no-op
+        }
+      }
+
       try {
-        const parsed = JSON.parse(savedAddress) as Partial<DeliveryAddressForm>;
-        setDeliveryAddress((previous) => ({
-          street: parsed.street ?? previous.street,
-          phone: parsed.phone ?? previous.phone,
-          city: parsed.city ?? previous.city,
-          state: parsed.state ?? previous.state,
-          postalCode: parsed.postalCode ?? previous.postalCode,
-          country: parsed.country ?? previous.country,
-        }));
+        const response = await fetch("/api/profile/addresses", { cache: "no-store" });
+        const body = (await response.json().catch(() => null)) as
+          | {
+              addresses?: Array<
+                SavedAddress & {
+                  createdAt: string;
+                }
+              >;
+            }
+          | null;
+        if (response.ok && Array.isArray(body?.addresses)) {
+          const mapped = body.addresses.map((address) => ({
+            id: address.id,
+            street: address.street,
+            phone: address.phone,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+            country: address.country,
+          }));
+          setSavedAddresses(mapped);
+
+          const preferredId = localStorage.getItem(DEFAULT_ADDRESS_ID_STORAGE_KEY) || mapped[0]?.id;
+          if (preferredId) {
+            const selected = mapped.find((address) => address.id === preferredId);
+            if (selected) {
+              setSelectedSavedAddressId(selected.id);
+              setDeliveryAddress({
+                street: selected.street,
+                phone: selected.phone || "",
+                city: selected.city,
+                state: selected.state,
+                postalCode: selected.postalCode,
+                country: selected.country,
+              });
+            }
+          }
+        }
       } catch {
         // no-op
+      } finally {
+        setLoading(false);
       }
     }
-    setLoading(false);
+
+    void boot();
   }, []);
 
-  const total = useMemo(
+  const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
     [items],
   );
+  const pricing = useMemo(() => calculateOrderPriceBreakdown(subtotal), [subtotal]);
 
   function validateAddress(): {
     street: string;
@@ -227,6 +293,39 @@ export default function CheckoutPage() {
             You are logged in. Order will be placed using your account.
           </div>
 
+          {savedAddresses.length > 0 ? (
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-neutral-600">
+                Saved Address
+              </label>
+              <select
+                value={selectedSavedAddressId}
+                onChange={(event) => {
+                  const id = event.target.value;
+                  setSelectedSavedAddressId(id);
+                  localStorage.setItem(DEFAULT_ADDRESS_ID_STORAGE_KEY, id);
+                  const selected = savedAddresses.find((address) => address.id === id);
+                  if (!selected) return;
+                  setDeliveryAddress({
+                    street: selected.street,
+                    phone: selected.phone || "",
+                    city: selected.city,
+                    state: selected.state,
+                    postalCode: selected.postalCode,
+                    country: selected.country,
+                  });
+                }}
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-green-600 focus:outline-none"
+              >
+                {savedAddresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {address.street}, {address.city}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
           <div>
             <label className="mb-1 block text-xs font-semibold text-neutral-600">House / Street</label>
             <input
@@ -349,7 +448,7 @@ export default function CheckoutPage() {
                 UPI ID: <span className="font-bold text-green-800">{SHOP_UPI_ID}</span>
               </p>
               <p className="text-sm text-neutral-700">
-                Amount to pay: <span className="font-bold text-green-800">{formatINR(total)}</span>
+                Amount to pay: <span className="font-bold text-green-800">{formatINR(pricing.total)}</span>
               </p>
               <div className="rounded-lg border border-dashed border-green-400 bg-white p-3 text-center text-sm text-neutral-600">
                 QR image abhi add karni hai. फिलहाल UPI ID pe payment karein.
@@ -371,9 +470,7 @@ export default function CheckoutPage() {
                   Address Edit
                 </Button>
               </div>
-              <p className="text-xs text-neutral-600">
-                Order payment admin verification ke baad confirm hoga.
-              </p>
+              <p className="text-xs text-neutral-600">Order payment admin verification ke baad confirm hoga.</p>
             </div>
           )}
         </form>
@@ -390,10 +487,27 @@ export default function CheckoutPage() {
                 <span>Items</span>
                 <span>{items.reduce((count, item) => count + item.quantity, 0)}</span>
               </div>
+              <div className="flex items-center justify-between">
+                <span>Subtotal</span>
+                <span>{formatINR(pricing.subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Delivery</span>
+                <span>
+                  {pricing.deliveryCharge === 0
+                    ? "FREE"
+                    : formatINR(pricing.deliveryCharge)}
+                </span>
+              </div>
               <div className="flex items-center justify-between text-base font-bold text-neutral-900">
                 <span>Total</span>
-                <span>{formatINR(total)}</span>
+                <span>{formatINR(pricing.total)}</span>
               </div>
+              <p className="rounded-md bg-green-50 px-2 py-1 text-xs text-green-700">
+                {pricing.deliveryCharge === 0
+                  ? `Free delivery unlocked (order >= ₹${FREE_DELIVERY_MIN_ORDER}).`
+                  : `Add ₹${FREE_DELIVERY_MIN_ORDER - pricing.subtotal} more for free delivery. Otherwise ₹${DELIVERY_CHARGE_BELOW_THRESHOLD} charge.`}
+              </p>
             </div>
           )}
         </aside>

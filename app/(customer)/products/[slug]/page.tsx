@@ -102,6 +102,45 @@ async function getRelatedProducts(product: Product): Promise<RelatedProduct[]> {
   }
 }
 
+async function getVariantProducts(product: Product): Promise<RelatedProduct[]> {
+  const parsed = parseProductDescription(product.description);
+  const variantGroup = parsed.meta.variantGroup;
+  if (!variantGroup) return [];
+
+  try {
+    const candidates = await prisma.product.findMany({
+      where: {
+        id: { not: product.id },
+      },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        imageUrl: true,
+        description: true,
+      },
+      take: 40,
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return candidates
+      .filter((candidate) => {
+        const meta = parseProductDescription(candidate.description);
+        return meta.meta.variantGroup === variantGroup && meta.meta.isActive !== false;
+      })
+      .map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        price: candidate.price,
+        imageUrl: candidate.imageUrl,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export default async function ProductDetailPage({
   params,
 }: {
@@ -117,7 +156,10 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const relatedProducts = await getRelatedProducts(product);
+  const [relatedProducts, variantProducts] = await Promise.all([
+    getRelatedProducts(product),
+    getVariantProducts(product),
+  ]);
   const inStock = product.stock > 0;
 
   return (
@@ -260,6 +302,23 @@ export default async function ProductDetailPage({
                   <p className="line-clamp-2 text-sm font-semibold text-neutral-900">{item.name}</p>
                   <p className="mt-1 text-sm font-extrabold text-green-700">{formatINR(item.price)}</p>
                 </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {variantProducts.length > 0 ? (
+        <section className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="text-lg font-bold text-neutral-900">Other Variants</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {variantProducts.map((variant) => (
+              <Link
+                key={variant.id}
+                href={`/products/${variant.id}`}
+                className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-800 hover:bg-green-100"
+              >
+                {variant.name} • {formatINR(variant.price)}
               </Link>
             ))}
           </div>

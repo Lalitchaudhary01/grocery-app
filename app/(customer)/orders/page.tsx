@@ -8,6 +8,8 @@ type PublicOrder = {
   id: string;
   status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
   paymentStatus?: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED";
+  subtotalAmount?: number;
+  deliveryCharge?: number;
   total: number;
   createdAt: string;
   updatedAt: string;
@@ -156,6 +158,20 @@ export default function OrdersPage() {
                   Total:{" "}
                   <span className="font-semibold text-green-700">
                     {formatINR(order.total)}
+                  </span>
+                </p>
+                <p>
+                  Subtotal:{" "}
+                  <span className="font-semibold text-neutral-900">
+                    {formatINR(order.subtotalAmount ?? order.total)}
+                  </span>
+                </p>
+                <p>
+                  Delivery:{" "}
+                  <span className="font-semibold text-neutral-900">
+                    {(order.deliveryCharge ?? 0) > 0
+                      ? formatINR(order.deliveryCharge ?? 0)
+                      : "FREE"}
                   </span>
                 </p>
                 <p>

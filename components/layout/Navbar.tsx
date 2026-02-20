@@ -121,6 +121,14 @@ export function Navbar() {
                 Orders
               </Link>
             ) : null}
+            {isCustomerLoggedIn ? (
+              <Link
+                href="/profile"
+                className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 sm:text-sm"
+              >
+                Profile
+              </Link>
+            ) : null}
           </nav>
         ) : (
           <Link

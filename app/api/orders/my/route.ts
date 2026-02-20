@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
+import { parseOrderPaymentMeta } from "@/lib/order-payment-meta";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
         id: true,
         status: true,
         total: true,
+        paymentNote: true,
         createdAt: true,
         updatedAt: true,
         items: {
@@ -44,7 +46,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ orders }, { status: 200 });
+    const ordersWithBreakdown = orders.map((order) => {
+      const breakdown = parseOrderPaymentMeta(order.paymentNote);
+      return {
+        ...order,
+        subtotalAmount: breakdown?.subtotalAmount ?? order.total,
+        deliveryCharge: breakdown?.deliveryCharge ?? 0,
+      };
+    });
+
+    return NextResponse.json({ orders: ordersWithBreakdown }, { status: 200 });
   } catch (error) {
     const message =
       process.env.NODE_ENV === "development" && error instanceof Error
