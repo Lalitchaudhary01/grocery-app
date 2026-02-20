@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/Button";
 export interface ProductCardItem {
   id: string;
   name: string;
+  description?: string | null;
   price: number;
+  mrp?: number;
+  unit?: string | null;
+  discountPercent?: number;
   stock: number;
   imageUrl: string | null;
 }
@@ -25,6 +29,13 @@ function formatINR(value: number) {
 
 export function ProductCard({ product }: { product: ProductCardItem }) {
   const inStock = product.stock > 0;
+  const mrp = product.mrp && product.mrp > product.price ? product.mrp : null;
+  const discountPercent =
+    typeof product.discountPercent === "number"
+      ? product.discountPercent
+      : mrp
+        ? Math.max(0, Math.round(((mrp - product.price) / mrp) * 100))
+        : 0;
 
   return (
     <article className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
@@ -39,12 +50,24 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
       </div>
       <div className="space-y-2 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900">{product.name}</h3>
+        {product.description ? (
+          <p className="line-clamp-2 text-xs text-neutral-500">{product.description}</p>
+        ) : null}
+        {product.unit ? <p className="text-xs font-semibold text-neutral-500">{product.unit}</p> : null}
         <div className="flex items-center justify-between gap-2">
-          <p className="text-base font-extrabold text-green-700">{formatINR(product.price)}</p>
+          <div>
+            <p className="text-base font-extrabold text-green-700">{formatINR(product.price)}</p>
+            {mrp ? (
+              <p className="text-xs text-neutral-400 line-through">{formatINR(mrp)}</p>
+            ) : null}
+          </div>
           <Badge tone={inStock ? "success" : "danger"}>
             {inStock ? "In Stock" : "Out of Stock"}
           </Badge>
         </div>
+        {discountPercent > 0 ? (
+          <p className="text-xs font-bold text-red-600">{discountPercent}% OFF</p>
+        ) : null}
         <div className="flex items-center gap-2">
           <Button href="/products" className="w-full" size="sm" variant="primary">
             Add to Cart

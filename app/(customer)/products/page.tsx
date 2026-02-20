@@ -5,11 +5,17 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { parseCategoryName } from "@/lib/category-name";
+
 type Product = {
   id: string;
   name: string;
   description?: string | null;
   price: number;
+  mrp?: number;
+  unit?: string | null;
+  discountPercent?: number;
+  isActive?: boolean;
   stock: number;
   imageUrl: string | null;
   category?: {
@@ -65,6 +71,8 @@ function formatINR(value: number) {
 }
 
 function categoryIcon(name: string): string {
+  const parsed = parseCategoryName(name);
+  if (parsed.icon) return parsed.icon;
   const matched = CATEGORY_ICONS.find((entry) => entry.matcher.test(name));
   return matched?.icon ?? "🛒";
 }
@@ -184,6 +192,7 @@ export default function ProductsPage() {
   const displayedProducts = useMemo(() => {
     const queryLower = query.trim().toLowerCase();
     const filtered = allProducts.filter((product) => {
+      if (product.isActive === false) return false;
       const matchesCategory =
         categoryId === "all" ? true : product.category?.id === categoryId;
       const matchesPrice = product.price <= priceCap;
@@ -275,7 +284,7 @@ export default function ProductsPage() {
                   }`}
                 >
                   <span>
-                    {categoryIcon(category.name)} {category.name}
+                    {categoryIcon(category.name)} {parseCategoryName(category.name).label}
                   </span>
                   <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs">
                     {categoryCounts.get(category.id) ?? 0}
@@ -388,9 +397,15 @@ export default function ProductsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {displayedProducts.map((product, index) => {
+              {displayedProducts.map((product) => {
                 const inStock = product.stock > 0;
-                const originalPrice = Math.round(product.price * 1.08);
+                const mrp = product.mrp && product.mrp > product.price ? product.mrp : null;
+                const discountPercent =
+                  typeof product.discountPercent === "number"
+                    ? product.discountPercent
+                    : mrp
+                      ? Math.max(0, Math.round(((mrp - product.price) / mrp) * 100))
+                      : 0;
 
                 return (
                   <article
@@ -399,9 +414,9 @@ export default function ProductsPage() {
                   >
                     <Link href={`/products/${product.id}`} className="block">
                       <div className="relative h-52 w-full bg-[#edf3e6]">
-                        {inStock && index % 2 === 0 ? (
+                        {inStock && discountPercent > 0 ? (
                           <span className="absolute left-3 top-3 z-10 rounded-md bg-red-500 px-2 py-1 text-xs font-bold text-white">
-                            {index % 4 === 0 ? "8% OFF" : "5% OFF"}
+                            {discountPercent}% OFF
                           </span>
                         ) : null}
                         {!inStock ? (
@@ -429,17 +444,22 @@ export default function ProductsPage() {
                       <h3 className="line-clamp-1 text-2xl font-bold text-neutral-900">
                         {product.name}
                       </h3>
-                      <p className="text-lg text-neutral-500">
-                        {product.description?.slice(0, 24) || "Premium quality item"}
+                      <p className="text-sm text-neutral-500">
+                        {product.description?.slice(0, 52) || "Premium quality item"}
                       </p>
+                      {product.unit ? (
+                        <p className="text-xs font-semibold text-neutral-500">{product.unit}</p>
+                      ) : null}
                       <div className="mt-2 flex items-end justify-between">
                         <div>
-                          <p className="text-4xl font-extrabold text-green-700">
+                          <p className="text-3xl font-extrabold text-green-700">
                             {formatINR(product.price)}
                           </p>
-                          <p className="text-xl text-neutral-400 line-through">
-                            ₹{originalPrice}
-                          </p>
+                          {mrp ? (
+                            <p className="text-sm text-neutral-400 line-through">
+                              {formatINR(mrp)}
+                            </p>
+                          ) : null}
                         </div>
                         <button
                           type="button"

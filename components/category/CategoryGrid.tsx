@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { parseCategoryName } from "@/lib/category-name";
+
 type CategoryItem = {
   id: string;
   name: string;
@@ -20,16 +22,21 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
 
   return (
     <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {categories.map((category) => (
+      {categories.map((category) => {
+        const parsed = parseCategoryName(category.name);
+        const icon = parsed.icon ?? "📁";
+        return (
         <Link
           key={category.id}
           href={`/products?categoryId=${category.id}`}
           className="rounded-xl bg-white p-3 text-center shadow-sm ring-1 ring-neutral-200 transition duration-200 hover:-translate-y-0.5 hover:bg-green-50 hover:ring-green-200"
         >
-          <p className="text-sm font-semibold text-neutral-800">{category.name}</p>
+          <p className="text-xl">{icon}</p>
+          <p className="text-sm font-semibold text-neutral-800">{parsed.label}</p>
           <p className="mt-1 text-xs font-medium text-green-700">View Products</p>
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
+import { encodeProductDescription, parseProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
 
 const routeParamsSchema = z.object({
@@ -16,7 +17,11 @@ const updateProductSchema = z
     name: z.string().trim().min(2).max(200).optional(),
     description: z.string().trim().max(2000).optional().nullable(),
     price: z.coerce.number().positive().optional(),
+    mrp: z.coerce.number().positive().optional().nullable(),
     stock: z.coerce.number().int().min(0).optional(),
+    unit: z.string().trim().max(80).optional().nullable(),
+    discountPercent: z.coerce.number().min(0).max(90).optional().nullable(),
+    isActive: z.coerce.boolean().optional(),
     imageUrl: z.string().url().max(1000).optional().nullable(),
     categoryId: z.string().uuid().optional(),
   })
@@ -82,18 +87,48 @@ export async function PATCH(
     const product = await prisma.$transaction(async (tx) => {
       const existing = await tx.product.findUnique({
         where: { id: parsedParams.data.id },
-        select: { id: true, stock: true },
+        select: { id: true, stock: true, description: true },
       });
 
       if (!existing) {
         throw new ProductNotFoundError();
       }
 
+      const existingParsed = parseProductDescription(existing.description);
+      const nextDescription =
+        parsedBody.data.description !== undefined ||
+        parsedBody.data.mrp !== undefined ||
+        parsedBody.data.unit !== undefined ||
+        parsedBody.data.discountPercent !== undefined ||
+        parsedBody.data.isActive !== undefined
+          ? encodeProductDescription(
+              parsedBody.data.description ?? existingParsed.description,
+              {
+                mrp:
+                  parsedBody.data.mrp !== undefined
+                    ? parsedBody.data.mrp
+                    : existingParsed.meta.mrp,
+                unit:
+                  parsedBody.data.unit !== undefined
+                    ? parsedBody.data.unit
+                    : existingParsed.meta.unit,
+                discountPercent:
+                  parsedBody.data.discountPercent !== undefined
+                    ? parsedBody.data.discountPercent
+                    : existingParsed.meta.discountPercent,
+                isActive:
+                  parsedBody.data.isActive !== undefined
+                    ? parsedBody.data.isActive
+                    : existingParsed.meta.isActive,
+              },
+            )
+          : undefined;
+
       const updated = await tx.product.update({
         where: { id: parsedParams.data.id },
         data: {
           name: parsedBody.data.name,
-          description: parsedBody.data.description,
+          description: nextDescription,
           price: parsedBody.data.price,
           stock: parsedBody.data.stock,
           imageUrl: parsedBody.data.imageUrl,
@@ -139,7 +174,20 @@ export async function PATCH(
       return updated;
     });
 
-    return NextResponse.json({ product }, { status: 200 });
+    const parsed = parseProductDescription(product.description);
+    return NextResponse.json(
+      {
+        product: {
+          ...product,
+          description: parsed.description,
+          mrp: parsed.meta.mrp ?? product.price,
+          unit: parsed.meta.unit ?? null,
+          discountPercent: parsed.meta.discountPercent ?? 0,
+          isActive: parsed.meta.isActive !== false,
+        },
+      },
+      { status: 200 },
+    );
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

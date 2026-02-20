@@ -4,13 +4,19 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { parseProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
 
 type Product = {
   id: string;
   name: string;
+  categoryId: string;
   description: string | null;
   price: number;
+  mrp: number;
+  unit: string | null;
+  discountPercent: number;
+  isActive: boolean;
   stock: number;
   imageUrl: string | null;
   category: {
@@ -50,7 +56,19 @@ async function getProduct(slug: string): Promise<Product | null> {
         },
       },
     });
-    return product;
+    if (!product) return null;
+    const parsed = parseProductDescription(product.description);
+    const mrp = parsed.meta.mrp ?? product.price;
+    const discountPercent =
+      parsed.meta.discountPercent ?? Math.max(0, Math.round(((mrp - product.price) / mrp) * 100));
+    return {
+      ...product,
+      description: parsed.description,
+      mrp,
+      unit: parsed.meta.unit ?? null,
+      discountPercent,
+      isActive: parsed.meta.isActive !== false,
+    };
   } catch {
     return null;
   }
@@ -93,6 +111,9 @@ export default async function ProductDetailPage({
   const product = await getProduct(slug);
 
   if (!product) {
+    notFound();
+  }
+  if (!product.isActive) {
     notFound();
   }
 
@@ -153,6 +174,21 @@ export default async function ProductDetailPage({
             <h1 className="mt-1 text-3xl font-extrabold leading-tight text-neutral-900">{product.name}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <p className="text-3xl font-extrabold text-green-700">{formatINR(product.price)}</p>
+              {product.mrp > product.price ? (
+                <p className="text-lg font-semibold text-neutral-400 line-through">
+                  {formatINR(product.mrp)}
+                </p>
+              ) : null}
+              {product.discountPercent > 0 ? (
+                <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
+                  {product.discountPercent}% OFF
+                </span>
+              ) : null}
+              {product.unit ? (
+                <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700">
+                  {product.unit}
+                </span>
+              ) : null}
               <Badge tone={inStock ? "success" : "danger"}>
                 {inStock ? `${product.stock} available` : "Out of stock"}
               </Badge>

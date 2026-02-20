@@ -5,7 +5,7 @@ import { ProductCard, type ProductCardItem } from "@/components/product/ProductC
 import { Button } from "@/components/ui/Button";
 
 type ProductsResponse = {
-  products?: ProductCardItem[];
+  products?: Array<ProductCardItem & { isActive?: boolean }>;
 };
 
 type CategoriesResponse = {
@@ -36,7 +36,8 @@ async function getProducts(): Promise<ProductCardItem[]> {
     if (!response.ok) return [];
 
     const data = (await response.json()) as ProductsResponse;
-    return Array.isArray(data.products) ? data.products : [];
+    const products = Array.isArray(data.products) ? data.products : [];
+    return products.filter((product) => product.isActive !== false);
   } catch {
     return [];
   }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
+import { parseProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
 
 const FALLBACK_IMAGE =
@@ -39,6 +40,10 @@ export default async function AdminProductDetailPage({
   const product = await getProduct(id);
 
   if (!product) notFound();
+  const parsed = parseProductDescription(product.description);
+  const mrp = parsed.meta.mrp ?? product.price;
+  const discountPercent =
+    parsed.meta.discountPercent ?? Math.max(0, Math.round(((mrp - product.price) / mrp) * 100));
 
   return (
     <div className="space-y-4">
@@ -64,13 +69,22 @@ export default async function AdminProductDetailPage({
           <p className="text-sm text-neutral-600">Product ID: {product.id}</p>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xl font-extrabold text-green-700">{formatINR(product.price)}</p>
+            {mrp > product.price ? (
+              <p className="text-base font-semibold text-neutral-400 line-through">
+                {formatINR(mrp)}
+              </p>
+            ) : null}
+            {discountPercent > 0 ? (
+              <Badge tone="danger">{discountPercent}% OFF</Badge>
+            ) : null}
+            {parsed.meta.unit ? <Badge tone="accent">{parsed.meta.unit}</Badge> : null}
             <Badge tone={product.stock > 0 ? "success" : "danger"}>
               {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
             </Badge>
             <Badge tone="neutral">{product.category?.name || "Uncategorized"}</Badge>
           </div>
           <p className="text-sm leading-6 text-neutral-700">
-            {product.description || "No description provided."}
+            {parsed.description || "No description provided."}
           </p>
         </div>
       </div>

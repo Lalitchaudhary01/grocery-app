@@ -1,24 +1,56 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { buildCategoryName, parseCategoryName } from "@/lib/category-name";
 
 type Category = {
   id: string;
   name: string;
+  _count?: {
+    products: number;
+  };
+};
+
+type CategoryForm = {
+  name: string;
+  icon: string;
+  sortOrder: string;
+  status: "active" | "inactive";
 };
 
 type CategoriesResponse = {
   categories?: Category[];
+  error?: string;
 };
+
+const DEFAULT_ICON = "📁";
+
+const EMPTY_FORM: CategoryForm = {
+  name: "",
+  icon: "",
+  sortOrder: "1",
+  status: "active",
+};
+
+function detectCategoryIcon(name: string): string {
+  const parsed = parseCategoryName(name);
+  if (parsed.icon) return parsed.icon;
+  if (/aata|atta|anaaj|anaj|grain|rice|chawal|daal|dal/i.test(name)) return "🌾";
+  if (/oil|tel|ghee/i.test(name)) return "🛢️";
+  if (/masala|spice|salt|namak/i.test(name)) return "🧂";
+  if (/safai|clean|harpic|detergent/i.test(name)) return "🧹";
+  if (/soap|care|personal|shampoo/i.test(name)) return "🧴";
+  return DEFAULT_ICON;
+}
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [name, setName] = useState("");
+  const [form, setForm] = useState<CategoryForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadCategories() {
@@ -27,10 +59,11 @@ export default function AdminCategoriesPage() {
       setError(null);
 
       const response = await fetch("/api/categories", { cache: "no-store" });
-      if (!response.ok) throw new Error("Failed to load categories.");
+      const body = (await response.json().catch(() => null)) as CategoriesResponse | null;
+      if (!response.ok) throw new Error(body?.error || "Failed to load categories.");
 
-      const data = (await response.json()) as CategoriesResponse;
-      setCategories(Array.isArray(data.categories) ? data.categories : []);
+      const list = Array.isArray(body?.categories) ? body.categories : [];
+      setCategories(list);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load categories.");
     } finally {
@@ -42,78 +75,268 @@ export default function AdminCategoriesPage() {
     void loadCategories();
   }, []);
 
-  async function createCategory(event: FormEvent<HTMLFormElement>) {
+  const sortedCategories = useMemo(
+    () =>
+      [...categories].sort((first, second) =>
+        parseCategoryName(first.name).label.localeCompare(parseCategoryName(second.name).label),
+      ),
+    [categories],
+  );
+
+  function startCreateMode() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  }
+
+  function startEditMode(category: Category) {
+    const parsed = parseCategoryName(category.name);
+    setEditingId(category.id);
+    setForm({
+      name: parsed.label,
+      icon: parsed.icon || detectCategoryIcon(category.name),
+      sortOrder: "1",
+      status: "active",
+    });
+  }
+
+  async function submitCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!name.trim()) return;
+    if (!form.name.trim()) return;
 
     try {
       setSaving(true);
       setError(null);
 
-      const response = await fetch("/api/categories", {
-        method: "POST",
+      const payload = {
+        name: buildCategoryName(form.name, form.icon),
+      };
+
+      const endpoint = editingId ? `/api/categories/${editingId}` : "/api/categories";
+      const method = editingId ? "PATCH" : "POST";
+
+      const response = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify(payload),
       });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
 
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(body?.error || "Failed to create category.");
+        throw new Error(body?.error || "Failed to save category.");
       }
 
-      setName("");
+      startCreateMode();
       await loadCategories();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to create category.");
+      setError(saveError instanceof Error ? saveError.message : "Failed to save category.");
     } finally {
       setSaving(false);
     }
   }
 
+  async function deleteCategory(id: string) {
+    try {
+      setDeletingId(id);
+      setError(null);
+      const response = await fetch(`/api/categories/${id}`, { method: "DELETE" });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(body?.error || "Failed to delete category.");
+      }
+      if (editingId === id) {
+        startCreateMode();
+      }
+      await loadCategories();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete category.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <h1 className="text-xl font-bold text-neutral-900">Categories</h1>
-        <p className="mt-1 text-sm text-neutral-600">Create and view product categories.</p>
-      </div>
-
-      <form onSubmit={createCategory} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-bold text-neutral-900">Add Category</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Category name"
-            disabled={saving}
-          />
-          <Button type="submit" disabled={saving || !name.trim()}>
-            {saving ? "Adding..." : "Add"}
-          </Button>
-        </div>
-      </form>
-
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
       ) : null}
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-bold text-neutral-900">Category List</p>
-        {loading ? (
-          <p className="text-sm text-neutral-600">Loading...</p>
-        ) : categories.length === 0 ? (
-          <p className="text-sm text-neutral-600">No categories found.</p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {categories.map((category) => (
-              <div key={category.id} className="rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-800">
-                {category.name}
-              </div>
-            ))}
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
+        <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+          <div className="border-b border-neutral-200 px-4 py-3">
+            <h2 className="text-3xl font-extrabold text-neutral-900">Current Categories</h2>
           </div>
-        )}
+
+          <table className="min-w-full">
+            <thead className="bg-[#eaf1e3] text-left text-xs font-bold uppercase tracking-wide text-neutral-600">
+              <tr>
+                <th className="px-4 py-3">Icon</th>
+                <th className="px-4 py-3">Category Name</th>
+                <th className="px-4 py-3">Products</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-neutral-600">
+                    Loading categories...
+                  </td>
+                </tr>
+              ) : sortedCategories.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-neutral-600">
+                    No categories found.
+                  </td>
+                </tr>
+              ) : (
+                sortedCategories.map((category) => {
+                  const parsed = parseCategoryName(category.name);
+                  const icon = parsed.icon || detectCategoryIcon(category.name);
+                  const label = parsed.label;
+                  const productsCount = category._count?.products ?? 0;
+
+                  return (
+                    <tr key={category.id}>
+                      <td className="px-4 py-4 text-3xl">{icon}</td>
+                      <td className="px-4 py-4 text-2xl font-bold text-neutral-900">{label}</td>
+                      <td className="px-4 py-4">
+                        <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-bold text-neutral-600">
+                          {productsCount}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-green-700">
+                          Active
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditMode(category)}
+                            className="rounded-xl border-2 border-green-700 px-3 py-1.5 text-sm font-bold text-green-700 hover:bg-green-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteCategory(category.id)}
+                            disabled={deletingId === category.id}
+                            className="rounded-xl bg-red-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-60"
+                          >
+                            {deletingId === category.id ? "..." : "Del"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="text-2xl font-extrabold text-green-700">➕ Naya Category Banayein</h2>
+
+          <form onSubmit={submitCategory} className="mt-4 space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-neutral-700">
+                Category Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="e.g. Dairy & Eggs"
+                required
+                disabled={saving}
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-neutral-700">
+                Icon (Emoji) <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={form.icon}
+                onChange={(event) => setForm((prev) => ({ ...prev, icon: event.target.value }))}
+                placeholder="🥛"
+                required
+                disabled={saving}
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Ek emoji likho jo category ko represent kare.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-neutral-700">Sort Order</label>
+              <input
+                type="number"
+                value={form.sortOrder}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, sortOrder: event.target.value }))
+                }
+                disabled
+                className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-500"
+              />
+              <p className="mt-1 text-xs text-neutral-500">Chhota number pehle dikhega (coming soon)</p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-neutral-700">Status</label>
+              <select
+                value={form.status}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    status: event.target.value as "active" | "inactive",
+                  }))
+                }
+                disabled
+                className="w-full rounded-xl border border-neutral-300 bg-neutral-100 px-3 py-2 text-sm text-neutral-500"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-green-700 px-6 py-2 text-base font-bold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-green-400"
+              >
+                {saving ? "Saving..." : "💾 Save Karein"}
+              </button>
+              {editingId ? (
+                <button
+                  type="button"
+                  onClick={startCreateMode}
+                  className="text-sm font-bold text-neutral-600 hover:text-neutral-900"
+                >
+                  ✕ Cancel
+                </button>
+              ) : null}
+            </div>
+          </form>
+
+          <div className="mt-4 rounded-xl border-l-4 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            💡 Category delete karne se pehle, us category ke sare products kisi aur category me
+            move karo.
+          </div>
+        </section>
       </div>
     </div>
   );
 }
+
