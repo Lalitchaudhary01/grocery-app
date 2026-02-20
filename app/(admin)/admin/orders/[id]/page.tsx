@@ -1,6 +1,6 @@
 "use client";
 
-import { OrderStatus, PaymentStatus } from "@prisma/client";
+import { OrderStatus } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/Badge";
 type AdminOrderDetail = {
   id: string;
   status: OrderStatus;
-  paymentStatus: PaymentStatus;
+  paymentStatus?: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED";
   paymentMethod?: string | null;
   paymentNote?: string | null;
   total: number;
@@ -82,13 +82,13 @@ function labelFromStatus(status: OrderStatus): string {
   return "Delivered";
 }
 
-function paymentLabel(status: PaymentStatus): string {
+function paymentLabel(status: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED"): string {
   if (status === "VERIFIED") return "Payment Confirmed";
   if (status === "FAILED") return "Payment Not Received";
   return "Payment Checking";
 }
 
-function paymentTone(status: PaymentStatus): "success" | "danger" | "accent" {
+function paymentTone(status: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED"): "success" | "danger" | "accent" {
   if (status === "VERIFIED") return "success";
   if (status === "FAILED") return "danger";
   return "accent";
@@ -170,7 +170,7 @@ export default function AdminOrderDetailPage() {
     }
   }
 
-  async function updatePaymentStatus(nextStatus: PaymentStatus) {
+  async function updatePaymentStatus(nextStatus: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED") {
     if (!order) return;
     try {
       setSubmitting(`payment:${nextStatus}`);
@@ -274,7 +274,9 @@ export default function AdminOrderDetailPage() {
               </p>
               <p className="text-neutral-700">
                 Payment:{" "}
-                <Badge tone={paymentTone(order.paymentStatus)}>{paymentLabel(order.paymentStatus)}</Badge>
+                <Badge tone={paymentTone(order.paymentStatus || "PENDING_VERIFICATION")}>
+                  {paymentLabel(order.paymentStatus || "PENDING_VERIFICATION")}
+                </Badge>
               </p>
             </div>
 
@@ -301,7 +303,7 @@ export default function AdminOrderDetailPage() {
               <button
                 type="button"
                 onClick={() => void updateStatus("CONFIRMED")}
-                disabled={submitting !== null || order.status === "CONFIRMED" || order.paymentStatus !== "VERIFIED"}
+                disabled={submitting !== null || order.status === "CONFIRMED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
                 className="rounded-md bg-green-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "CONFIRMED" ? "Accepting..." : "Accept"}
@@ -309,7 +311,7 @@ export default function AdminOrderDetailPage() {
               <button
                 type="button"
                 onClick={() => void updateStatus("SHIPPED")}
-                disabled={submitting !== null || order.status === "SHIPPED" || order.status === "CANCELLED" || order.paymentStatus !== "VERIFIED"}
+                disabled={submitting !== null || order.status === "SHIPPED" || order.status === "CANCELLED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
                 className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "SHIPPED" ? "Updating..." : "Shipped"}
@@ -317,7 +319,7 @@ export default function AdminOrderDetailPage() {
               <button
                 type="button"
                 onClick={() => void updateStatus("DELIVERED")}
-                disabled={submitting !== null || order.status === "DELIVERED" || order.status === "CANCELLED" || order.paymentStatus !== "VERIFIED"}
+                disabled={submitting !== null || order.status === "DELIVERED" || order.status === "CANCELLED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
                 className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "DELIVERED" ? "Updating..." : "Delivered"}

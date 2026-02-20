@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -13,9 +14,19 @@ type Product = {
   price: number;
   stock: number;
   imageUrl: string | null;
+  category?: {
+    id: string;
+    name: string;
+  };
 };
 
 type ProductsResponse = { products?: Product[] };
+type CategoriesResponse = {
+  categories?: Array<{
+    id: string;
+    name: string;
+  }>;
+};
 type PublicOrder = {
   id: string;
   status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
@@ -56,7 +67,9 @@ function readCart(): CartItem[] {
 }
 
 export default function ProductsPage() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -64,9 +77,17 @@ export default function ProductsPage() {
   const [recentOrders, setRecentOrders] = useState<PublicOrder[]>([]);
   const [query, setQuery] = useState("");
   const [stockFilter, setStockFilter] = useState<"" | "in" | "out">("");
+  const [categoryId, setCategoryId] = useState("");
 
   useEffect(() => {
-    async function loadProducts() {
+    const categoryFromQuery = searchParams.get("categoryId") ?? "";
+    const qFromQuery = searchParams.get("q") ?? "";
+    setCategoryId(categoryFromQuery);
+    setQuery(qFromQuery);
+  }, [searchParams]);
+
+  useEffect(() => {
+    async function loadProductsAndCategories() {
       try {
         setLoading(true);
         setError(null);
@@ -74,19 +95,27 @@ export default function ProductsPage() {
         const params = new URLSearchParams();
         if (query.trim()) params.set("q", query.trim());
         if (stockFilter) params.set("stock", stockFilter);
+        if (categoryId) params.set("categoryId", categoryId);
 
-        const response = await fetch(`/api/products?${params.toString()}`, {
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as
+        const [productsRes, categoriesRes] = await Promise.all([
+          fetch(`/api/products?${params.toString()}`, { cache: "no-store" }),
+          fetch("/api/categories", { cache: "no-store" }),
+        ]);
+
+        if (!productsRes.ok) {
+          const body = (await productsRes.json().catch(() => null)) as
             | { error?: string }
             | null;
           throw new Error(body?.error || "Products load failed.");
         }
 
-        const data = (await response.json()) as ProductsResponse;
-        setProducts(Array.isArray(data.products) ? data.products : []);
+        const productsData = (await productsRes.json()) as ProductsResponse;
+        const categoriesData = (await categoriesRes.json().catch(() => null)) as
+          | CategoriesResponse
+          | null;
+
+        setProducts(Array.isArray(productsData.products) ? productsData.products : []);
+        setCategories(Array.isArray(categoriesData?.categories) ? categoriesData.categories : []);
       } catch (loadError) {
         setError(
           loadError instanceof Error ? loadError.message : "Products load failed.",
@@ -96,8 +125,8 @@ export default function ProductsPage() {
       }
     }
 
-    void loadProducts();
-  }, [query, stockFilter]);
+    void loadProductsAndCategories();
+  }, [categoryId, query, stockFilter]);
 
   useEffect(() => {
     async function loadRecentOrders() {
@@ -166,30 +195,70 @@ export default function ProductsPage() {
 
   return (
     <div className="bg-neutral-100 px-4 py-6 sm:px-6">
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">All Products</h1>
-        <Button href="/cart" size="sm" variant="outline">
-          Go to Cart
-        </Button>
+      <div className="mb-4 overflow-hidden rounded-2xl bg-gradient-to-br from-green-700 via-green-600 to-green-500 p-5 text-white shadow-lg ring-1 ring-green-900/20">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold sm:text-3xl">All Products</h1>
+            <p className="text-sm text-green-100">Fresh stock from your local trusted store.</p>
+          </div>
+          <Button href="/cart" size="sm" className="bg-amber-400 text-green-900 hover:bg-amber-300">
+            Go to Cart
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_180px_180px]">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search products or category"
+            className="w-full rounded-lg border border-white/30 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none"
+          />
+          <select
+            value={stockFilter}
+            onChange={(event) => setStockFilter(event.target.value as "" | "in" | "out")}
+            className="w-full rounded-lg border border-white/30 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-amber-300 focus:outline-none"
+          >
+            <option value="">All stock</option>
+            <option value="in">In stock</option>
+            <option value="out">Out of stock</option>
+          </select>
+          <select
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            className="w-full rounded-lg border border-white/30 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-amber-300 focus:outline-none"
+          >
+            <option value="">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_180px]">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search products"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
-        />
-        <select
-          value={stockFilter}
-          onChange={(event) => setStockFilter(event.target.value as "" | "in" | "out")}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
-        >
-          <option value="">All stock</option>
-          <option value="in">In stock</option>
-          <option value="out">Out of stock</option>
-        </select>
-      </div>
+      {categoryId ? (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+            Category filter active
+          </span>
+          <button
+            type="button"
+            onClick={() => setCategoryId("")}
+            className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+          >
+            Clear
+          </button>
+        </div>
+      ) : null}
+
+      {query.trim() ? (
+        <div className="mb-3">
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+            Search: {query.trim()}
+          </span>
+        </div>
+      ) : null}
 
       {toast ? (
         <div className="mb-4 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-800">
@@ -268,17 +337,17 @@ export default function ProductsPage() {
         </div>
       ) : (
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => {
-            const inStock = product.stock > 0;
+              {products.map((product) => {
+                const inStock = product.stock > 0;
 
-            return (
-              <article
-                key={product.id}
-                className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
-              >
-                <Link href={`/products/${product.id}`} className="block">
-                  <div className="relative aspect-[4/3] w-full bg-neutral-100">
-                    <Image
+                return (
+                  <article
+                    key={product.id}
+                    className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <Link href={`/products/${product.id}`} className="block">
+                      <div className="relative aspect-[4/3] w-full bg-neutral-100">
+                        <Image
                       src={product.imageUrl || FALLBACK_IMAGE}
                       alt={product.name}
                       fill
@@ -288,6 +357,11 @@ export default function ProductsPage() {
                   </div>
                 </Link>
                 <div className="space-y-2 p-3">
+                  {product.category?.name ? (
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-green-700">
+                      {product.category.name}
+                    </p>
+                  ) : null}
                   <h2 className="line-clamp-2 text-sm font-semibold text-neutral-900">
                     {product.name}
                   </h2>

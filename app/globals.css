@@ -124,3 +124,38 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes rise-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@layer utilities {
+  .animate-rise-in {
+    animation: rise-in 0.6s ease-out both;
+  }
+
+  .animate-rise-in-delay {
+    animation: rise-in 0.75s ease-out both;
+  }
+
+  .animate-soft-float {
+    animation: soft-float 4s ease-in-out infinite;
+  }
+}

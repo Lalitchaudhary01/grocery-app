@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { name: { contains: q, mode: "insensitive" } },
         { description: { contains: q, mode: "insensitive" } },
+        { category: { name: { contains: q, mode: "insensitive" } } },
       ];
     }
     if (categoryId) {

@@ -62,6 +62,7 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-green-100 bg-green-700">
       <div className="mx-auto flex w-full items-center justify-between px-4 py-3 sm:px-6">
         <div>
+          <Link href="/" className="flex items-center gap-2">
           <p className="text-sm font-bold leading-tight text-white sm:text-base">
             Vivek Chaudhary
             <br />
@@ -70,6 +71,7 @@ export function Navbar() {
           <p className="text-[11px] text-green-100 sm:text-xs">
             3 KM ke andar Home Delivery
           </p>
+          </Link>
         </div>
 
         {!isAdminRoute ? (
