@@ -8,7 +8,7 @@ function startOfToday() {
 }
 
 export default async function AdminDashboardPage() {
-  const [todayOrders, pendingOrders, totalProducts, lowStockProducts, earningsAggregate] =
+  const [todayOrders, pendingOrders, totalProducts, lowStockProducts, lowStockList, recentAudits, earningsAggregate] =
     await Promise.all([
       prisma.order.count({
         where: {
@@ -27,6 +27,34 @@ export default async function AdminDashboardPage() {
         where: {
           stock: {
             lte: 5,
+          },
+        },
+      }),
+      prisma.product.findMany({
+        where: {
+          stock: {
+            lte: 5,
+          },
+        },
+        orderBy: [{ stock: "asc" }, { updatedAt: "desc" }],
+        take: 8,
+        select: {
+          id: true,
+          name: true,
+          stock: true,
+        },
+      }),
+      prisma.adminAuditLog.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 8,
+        include: {
+          admin: {
+            select: {
+              name: true,
+              email: true,
+            },
           },
         },
       }),
@@ -82,12 +110,69 @@ export default async function AdminDashboardPage() {
 
       <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
+          <p className="text-sm font-bold text-neutral-900">Low Stock Alerts (≤ 5)</p>
+          <Badge tone={lowStockList.length > 0 ? "accent" : "success"}>
+            {lowStockList.length > 0 ? "Needs Action" : "Healthy"}
+          </Badge>
+        </div>
+        {lowStockList.length === 0 ? (
+          <p className="mt-2 text-sm text-neutral-600">No low-stock products right now.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wide text-neutral-500">
+                <tr>
+                  <th className="py-1 pr-4">Product</th>
+                  <th className="py-1 pr-4">Stock</th>
+                  <th className="py-1">ID</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {lowStockList.map((product) => (
+                  <tr key={product.id}>
+                    <td className="py-2 pr-4 font-semibold text-neutral-800">{product.name}</td>
+                    <td className="py-2 pr-4 text-red-600">{product.stock}</td>
+                    <td className="py-2 text-xs text-neutral-500">
+                      {product.id.slice(0, 8).toUpperCase()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between">
           <p className="text-sm font-bold text-neutral-900">Service Status</p>
           <Badge tone="success">Active</Badge>
         </div>
         <p className="mt-2 text-sm text-neutral-600">
           3 KM home delivery currently enabled.
         </p>
+      </div>
+
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <p className="text-sm font-bold text-neutral-900">Recent Admin Actions</p>
+        {recentAudits.length === 0 ? (
+          <p className="mt-2 text-sm text-neutral-600">No audit logs available.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {recentAudits.map((log) => (
+              <div key={log.id} className="rounded-md border border-neutral-200 px-3 py-2">
+                <p className="text-sm font-semibold text-neutral-900">{log.action}</p>
+                <p className="text-xs text-neutral-500">
+                  {(log.admin.name || log.admin.email) ?? "Admin"} •{" "}
+                  {new Intl.DateTimeFormat("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(log.createdAt)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

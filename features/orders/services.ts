@@ -9,6 +9,7 @@ export interface CreateOrderInput {
   userId: string;
   deliveryAddress: {
     street: string;
+    phone: string;
     city: string;
     state: string;
     postalCode: string;
@@ -42,6 +43,10 @@ function calculateTotalAmount(items: ReservedInventoryItem[]): number {
   return items.reduce((total, item) => total + item.unitPrice * item.quantity, 0);
 }
 
+function hasUnknownPaymentStatusField(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("paymentStatus");
+}
+
 export async function createOrder(input: CreateOrderInput): Promise<CreatedOrderResult> {
   return prisma.$transaction(async (tx) => {
     const customer = await tx.user.findUnique({
@@ -59,10 +64,34 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
     const reservedItems = await reserveInventoryStock(tx, input.items);
     const totalAmount = calculateTotalAmount(reservedItems);
 
+    let hasPendingPaymentOrder = false;
+    try {
+      const existingPendingPaymentOrder = await tx.order.findFirst({
+        where: {
+          userId: customer.id,
+          paymentStatus: "PENDING_VERIFICATION",
+          status: {
+            notIn: ["CANCELLED", "DELIVERED"],
+          },
+        },
+        select: { id: true },
+      });
+      hasPendingPaymentOrder = Boolean(existingPendingPaymentOrder);
+    } catch (error) {
+      if (!hasUnknownPaymentStatusField(error)) {
+        throw error;
+      }
+    }
+
+    if (hasPendingPaymentOrder) {
+      throw new Error("Please wait. Your previous payment is still being verified.");
+    }
+
     const savedAddress = await tx.address.create({
       data: {
         userId: customer.id,
         street: input.deliveryAddress.street,
+        phone: input.deliveryAddress.phone,
         city: input.deliveryAddress.city,
         state: input.deliveryAddress.state,
         postalCode: input.deliveryAddress.postalCode,
@@ -73,26 +102,85 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
       },
     });
 
-    const order = await tx.order.create({
-      data: {
-        userId: customer.id,
-        addressId: savedAddress.id,
-        total: totalAmount,
-        items: {
-          createMany: {
-            data: reservedItems.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.unitPrice,
-            })),
+    let order: {
+      id: string;
+      status: string;
+      createdAt: Date;
+    };
+
+    try {
+      order = await tx.order.create({
+        data: {
+          userId: customer.id,
+          addressId: savedAddress.id,
+          paymentStatus: "PENDING_VERIFICATION",
+          paymentMethod: "UPI_QR",
+          paymentNote: "Customer marked payment done via QR. Admin verification pending.",
+          total: totalAmount,
+          items: {
+            createMany: {
+              data: reservedItems.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.unitPrice,
+              })),
+            },
           },
         },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+    } catch (error) {
+      if (!hasUnknownPaymentStatusField(error)) {
+        throw error;
+      }
+
+      order = await tx.order.create({
+        data: {
+          userId: customer.id,
+          addressId: savedAddress.id,
+          total: totalAmount,
+          items: {
+            createMany: {
+              data: reservedItems.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.unitPrice,
+              })),
+            },
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+    }
+
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId: order.id,
+        status: order.status,
+        note: "Order placed by customer.",
+        changedByUserId: customer.id,
       },
-      select: {
-        id: true,
-        status: true,
-        createdAt: true,
-      },
+    });
+
+    await tx.stockChangeHistory.createMany({
+      data: reservedItems.map((item) => ({
+        productId: item.productId,
+        orderId: order.id,
+        changeType: "ORDER_PLACED",
+        quantityDelta: -item.quantity,
+        previousStock: item.previousStock,
+        newStock: item.newStock,
+        reason: "Stock reduced after order placement.",
+        changedByUserId: customer.id,
+      })),
     });
 
     return {

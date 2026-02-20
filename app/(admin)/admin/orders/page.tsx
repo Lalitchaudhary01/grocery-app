@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { OrderStatus } from "@prisma/client";
+import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 
 import { Badge } from "@/components/ui/Badge";
 
 type AdminOrder = {
   id: string;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
   total: number;
   createdAt: string;
   user: {
@@ -16,6 +18,10 @@ type AdminOrder = {
   };
   items: Array<{
     productId: string;
+    product: {
+      name: string;
+      imageUrl: string | null;
+    };
   }>;
 };
 
@@ -23,6 +29,9 @@ type AdminOrdersResponse = {
   orders?: AdminOrder[];
   error?: string;
 };
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
 
 function formatINR(value: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -54,17 +63,35 @@ function labelFromStatus(status: OrderStatus): string {
   return "Delivered";
 }
 
+function paymentLabel(status: PaymentStatus): string {
+  if (status === "VERIFIED") return "Payment Confirmed";
+  if (status === "FAILED") return "Payment Failed";
+  return "Payment Checking";
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<"" | OrderStatus>("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch("/api/orders/admin", { cache: "no-store" });
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      if (status) params.set("status", status);
+      if (fromDate) params.set("from", fromDate);
+      if (toDate) params.set("to", toDate);
+
+      const response = await fetch(`/api/orders/admin?${params.toString()}`, {
+        cache: "no-store",
+      });
       const body = (await response.json().catch(() => null)) as
         | AdminOrdersResponse
         | null;
@@ -79,11 +106,11 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [fromDate, query, status, toDate]);
 
   useEffect(() => {
     void loadOrders();
-  }, []);
+  }, [loadOrders]);
 
   return (
     <div className="space-y-4">
@@ -92,6 +119,50 @@ export default function AdminOrdersPage() {
         <p className="mt-1 text-sm text-neutral-600">
           Accept or reject customer orders.
         </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search order/customer"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+          />
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as "" | OrderStatus)}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+          >
+            <option value="">All status</option>
+            <option value="PENDING">Pending</option>
+            <option value="CONFIRMED">Accepted</option>
+            <option value="SHIPPED">Out for Delivery</option>
+            <option value="DELIVERED">Delivered</option>
+            <option value="CANCELLED">Rejected</option>
+          </select>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+          />
+          <input
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setStatus("");
+              setFromDate("");
+              setToDate("");
+            }}
+            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+          >
+            Reset
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -109,21 +180,22 @@ export default function AdminOrdersPage() {
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Product IDs</th>
+                <th className="px-4 py-3">Products</th>
                 <th className="px-4 py-3">View</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-neutral-600">
+                  <td colSpan={8} className="px-4 py-6 text-center text-neutral-600">
                     Loading orders...
                   </td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-neutral-600">
+                  <td colSpan={8} className="px-4 py-6 text-center text-neutral-600">
                     No orders yet.
                   </td>
                 </tr>
@@ -144,6 +216,9 @@ export default function AdminOrdersPage() {
                         {labelFromStatus(order.status)}
                       </Badge>
                     </td>
+                    <td className="px-4 py-3 text-xs font-semibold text-neutral-700">
+                      {paymentLabel(order.paymentStatus)}
+                    </td>
                     <td className="px-4 py-3 text-neutral-600">
                       {formatDate(order.createdAt)}
                     </td>
@@ -151,11 +226,20 @@ export default function AdminOrdersPage() {
                       <div className="flex flex-wrap gap-1.5">
                         {order.items.map((item) => (
                           <a
-                            key={item.productId}
-                            href={`/admin/orders/${order.id}`}
-                            className="rounded-md border border-neutral-300 bg-neutral-50 px-2 py-1 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-100"
+                            key={`${order.id}-${item.productId}`}
+                            href={`/admin/products/${item.productId}`}
+                            className="group block overflow-hidden rounded-md border border-neutral-300 bg-neutral-50 hover:bg-neutral-100"
+                            title={item.product.name}
                           >
-                            {item.productId.slice(0, 8).toUpperCase()}
+                            <div className="relative h-10 w-10 bg-neutral-100">
+                              <Image
+                                src={item.product.imageUrl || FALLBACK_IMAGE}
+                                alt={item.product.name}
+                                fill
+                                sizes="40px"
+                                className="object-cover transition group-hover:scale-105"
+                              />
+                            </div>
                           </a>
                         ))}
                       </div>

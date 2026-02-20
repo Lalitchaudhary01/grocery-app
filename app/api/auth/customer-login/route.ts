@@ -7,12 +7,21 @@ import { mobileToEmail, normalizeMobile } from "@/lib/customer-auth";
 import { setCustomerAuthCookie } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const customerLoginSchema = z.object({
   mobile: z.string().trim().min(10).max(20),
 });
 
 export async function POST(request: Request) {
+  const rateLimited = checkRateLimit({
+    request,
+    scope: "auth:customer-login",
+    max: 12,
+    windowMs: 60_000,
+  });
+  if (rateLimited) return rateLimited;
+
   try {
     const body = await readJsonBody<unknown>(request);
     if (!body) return badRequest("Invalid JSON payload.");

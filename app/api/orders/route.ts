@@ -10,10 +10,12 @@ import {
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const createOrderSchema = z.object({
   deliveryAddress: z.object({
     street: z.string().trim().min(5).max(200),
+    phone: z.string().trim().regex(/^\d{10}$/, "Invalid phone number."),
     city: z.string().trim().min(2).max(80),
     state: z.string().trim().min(2).max(80),
     postalCode: z.string().trim().regex(/^\d{6}$/, "Invalid postal code."),
@@ -30,6 +32,14 @@ const createOrderSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const rateLimited = checkRateLimit({
+    request,
+    scope: "orders:create",
+    max: 10,
+    windowMs: 60_000,
+  });
+  if (rateLimited) return rateLimited;
+
   try {
     const token = request.cookies.get(CUSTOMER_AUTH_COOKIE_NAME)?.value;
     if (!token) {
@@ -64,6 +74,7 @@ export async function POST(request: NextRequest) {
       userId: payload.sub,
       deliveryAddress: {
         street: parsed.data.deliveryAddress.street,
+        phone: parsed.data.deliveryAddress.phone,
         city: parsed.data.deliveryAddress.city,
         state: parsed.data.deliveryAddress.state,
         postalCode: parsed.data.deliveryAddress.postalCode,
@@ -109,10 +120,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: "Failed to place order." },
-      { status: 500 },
-    );
+    if (error instanceof Error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Failed to place order.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

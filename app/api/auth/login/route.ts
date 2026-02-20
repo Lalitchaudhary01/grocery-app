@@ -7,6 +7,7 @@ import { verifyPassword } from "@/lib/bcrypt";
 import { setAuthCookie } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const loginSchema = z.object({
   email: z.email().toLowerCase(),
@@ -14,6 +15,14 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const rateLimited = checkRateLimit({
+    request,
+    scope: "auth:admin-login",
+    max: 10,
+    windowMs: 60_000,
+  });
+  if (rateLimited) return rateLimited;
+
   try {
     const body = await readJsonBody<unknown>(request);
     if (!body) {

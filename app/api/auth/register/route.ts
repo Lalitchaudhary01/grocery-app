@@ -8,6 +8,7 @@ import { setAuthCookie } from "@/lib/cookies";
 import { getRequiredEnv } from "@/lib/env";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const registerSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
@@ -21,6 +22,14 @@ function getRequiredSeedKey(): string {
 }
 
 export async function POST(request: Request) {
+  const rateLimited = checkRateLimit({
+    request,
+    scope: "auth:admin-register",
+    max: 5,
+    windowMs: 60_000,
+  });
+  if (rateLimited) return rateLimited;
+
   try {
     const body = await readJsonBody<unknown>(request);
     if (!body) {

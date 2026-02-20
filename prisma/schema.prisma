@@ -21,6 +21,17 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  FAILED
+}
+
+enum StockChangeType {
+  ORDER_PLACED
+  ADMIN_ADJUSTMENT
+}
+
 model User {
   id        String    @id @default(uuid())
   name      String?
@@ -31,6 +42,7 @@ model User {
   addresses Address[]
   cart      Cart?
   orders    Order[]
+  auditLogs AdminAuditLog[] @relation("AdminAuditActor")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -42,6 +54,7 @@ model Address {
   userId     String
 
   street     String
+  phone      String?
   city       String
   state      String
   postalCode String
@@ -72,6 +85,7 @@ model Product {
 
   cartItems   CartItem[]
   orderItems  OrderItem[]
+  stockChanges StockChangeHistory[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -108,15 +122,24 @@ model Order {
   userId    String
 
   status    OrderStatus  @default(PENDING)
+  cancelReason String?
+  paymentStatus PaymentStatus @default(PENDING_VERIFICATION)
+  paymentMethod String?
+  paymentNote String?
   total     Float
 
   items     OrderItem[]
+  statusHistory OrderStatusHistory[]
+  stockChanges StockChangeHistory[]
 
   address   Address?     @relation(fields: [addressId], references: [id])
   addressId String?
 
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status])
 }
 
 model OrderItem {
@@ -133,4 +156,51 @@ model OrderItem {
   createdAt DateTime @default(now())
 
   @@unique([orderId, productId])
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id              String      @id @default(uuid())
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String
+  status          OrderStatus
+  note            String?
+  changedByUserId String?
+
+  createdAt       DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+model StockChangeHistory {
+  id              String          @id @default(uuid())
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId       String
+  order           Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderId         String?
+  changeType      StockChangeType
+  quantityDelta   Int
+  previousStock   Int
+  newStock        Int
+  reason          String?
+  changedByUserId String?
+
+  createdAt       DateTime        @default(now())
+
+  @@index([productId, createdAt])
+  @@index([orderId])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  admin       User     @relation("AdminAuditActor", fields: [adminUserId], references: [id], onDelete: Cascade)
+  adminUserId String
+  action      String
+  entityType  String
+  entityId    String?
+  meta        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([adminUserId, createdAt])
+  @@index([entityType, entityId])
 }

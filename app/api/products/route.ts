@@ -16,27 +16,50 @@ const createProductSchema = z.object({
   categoryId: z.string().uuid(),
 });
 
-function ensureAdmin(request: NextRequest): NextResponse | null {
+function ensureAdmin(request: NextRequest): { adminId: string } | { error: NextResponse } {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
   const payload = verifyAuthToken(token);
   if (!payload) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
   if (payload.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    return { error: NextResponse.json({ error: "Forbidden." }, { status: 403 }) };
   }
 
-  return null;
+  return { adminId: payload.sub };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.trim() ?? "";
+    const categoryId = searchParams.get("categoryId")?.trim() ?? "";
+    const stock = searchParams.get("stock")?.trim() ?? "";
+
+    const where: Prisma.ProductWhereInput = {};
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+    if (stock === "in") {
+      where.stock = { gt: 0 };
+    }
+    if (stock === "out") {
+      where.stock = { lte: 0 };
+    }
+
     const products = await prisma.product.findMany({
+      where,
       include: {
         category: {
           select: {
@@ -60,8 +83,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = ensureAdmin(request);
-  if (authError) return authError;
+  const auth = ensureAdmin(request);
+  if ("error" in auth) return auth.error;
 
   try {
     const body = await readJsonBody<unknown>(request);
@@ -76,23 +99,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const product = await prisma.product.create({
-      data: {
-        name: parsed.data.name,
-        description: parsed.data.description ?? null,
-        price: parsed.data.price,
-        stock: parsed.data.stock,
-        imageUrl: parsed.data.imageUrl ?? null,
-        categoryId: parsed.data.categoryId,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: {
+          name: parsed.data.name,
+          description: parsed.data.description ?? null,
+          price: parsed.data.price,
+          stock: parsed.data.stock,
+          imageUrl: parsed.data.imageUrl ?? null,
+          categoryId: parsed.data.categoryId,
+        },
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-      },
+      });
+
+      await tx.adminAuditLog.create({
+        data: {
+          adminUserId: auth.adminId,
+          action: "PRODUCT_CREATED",
+          entityType: "PRODUCT",
+          entityId: created.id,
+          meta: {
+            name: created.name,
+            stock: created.stock,
+          },
+        },
+      });
+
+      return created;
     });
 
     return NextResponse.json({ product }, { status: 201 });

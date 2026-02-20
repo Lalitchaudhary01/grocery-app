@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { OrderStatus } from "@prisma/client";
 
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
@@ -27,7 +28,48 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.trim() ?? "";
+    const status = searchParams.get("status");
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+
+    const where: {
+      status?: OrderStatus;
+      createdAt?: { gte?: Date; lte?: Date };
+      OR?: Array<{
+        id?: { contains: string; mode: "insensitive" };
+        user?: {
+          name?: { contains: string; mode: "insensitive" };
+          email?: { contains: string; mode: "insensitive" };
+        };
+      }>;
+    } = {};
+
+    if (status && Object.values(OrderStatus).includes(status as OrderStatus)) {
+      where.status = status as OrderStatus;
+    }
+
+    if (from || to) {
+      where.createdAt = {};
+      if (from) {
+        where.createdAt.gte = new Date(`${from}T00:00:00.000Z`);
+      }
+      if (to) {
+        where.createdAt.lte = new Date(`${to}T23:59:59.999Z`);
+      }
+    }
+
+    if (q) {
+      where.OR = [
+        { id: { contains: q, mode: "insensitive" } },
+        { user: { name: { contains: q, mode: "insensitive" } } },
+        { user: { email: { contains: q, mode: "insensitive" } } },
+      ];
+    }
+
     const orders = await prisma.order.findMany({
+      where,
       include: {
         user: {
           select: {
@@ -35,9 +77,24 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        statusHistory: {
+          select: {
+            status: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
         items: {
           select: {
             productId: true,
+            product: {
+              select: {
+                name: true,
+                imageUrl: true,
+              },
+            },
           },
         },
         address: {
@@ -54,9 +111,13 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ orders }, { status: 200 });
-  } catch {
+  } catch (error) {
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Failed to fetch admin orders.";
     return NextResponse.json(
-      { error: "Failed to fetch admin orders." },
+      { error: message },
       { status: 500 },
     );
   }

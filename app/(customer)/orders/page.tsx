@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type PublicOrder = {
   id: string;
   status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+  paymentStatus?: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED";
   total: number;
   createdAt: string;
   updatedAt: string;
@@ -13,6 +15,7 @@ type PublicOrder = {
     productId: string;
     product: {
       name: string;
+      imageUrl: string | null;
     };
   }>;
 };
@@ -21,6 +24,9 @@ type OrderResponse = {
   orders?: PublicOrder[];
   error?: string;
 };
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
 
 function formatINR(value: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -152,21 +158,39 @@ export default function OrdersPage() {
                     {formatINR(order.total)}
                   </span>
                 </p>
+                <p>
+                  Payment:{" "}
+                  <span className="font-semibold text-neutral-900">
+                    {order.paymentStatus === "VERIFIED"
+                      ? "Confirmed"
+                      : order.paymentStatus === "FAILED"
+                        ? "Not Received"
+                        : "Checking"}
+                  </span>
+                </p>
                 <p>Ordered: {formatDate(order.createdAt)}</p>
                 <p>Updated: {formatDate(order.updatedAt)}</p>
               </div>
               <div className="mt-3">
                 <p className="mb-1 text-xs font-semibold text-neutral-500">
-                  Product IDs (click to view order details):
+                  Products:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {order.items.map((item) => (
                     <Link
-                      key={item.productId}
-                      href={`/orders/${order.id}`}
-                      className="rounded-md border border-neutral-300 bg-neutral-50 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+                      key={`${order.id}-${item.productId}`}
+                      href={`/products/${item.productId}`}
+                      className="group block overflow-hidden rounded-md border border-neutral-300 bg-neutral-50 hover:bg-neutral-100"
                     >
-                      {item.productId.slice(0, 8).toUpperCase()}
+                      <div className="relative h-12 w-12 bg-neutral-100">
+                        <Image
+                          src={item.product.imageUrl || FALLBACK_IMAGE}
+                          alt={item.product.name}
+                          fill
+                          sizes="48px"
+                          className="object-cover transition group-hover:scale-105"
+                        />
+                      </div>
                     </Link>
                   ))}
                 </div>

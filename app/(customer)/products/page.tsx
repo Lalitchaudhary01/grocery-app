@@ -62,6 +62,8 @@ export default function ProductsPage() {
   const [addingId, setAddingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [recentOrders, setRecentOrders] = useState<PublicOrder[]>([]);
+  const [query, setQuery] = useState("");
+  const [stockFilter, setStockFilter] = useState<"" | "in" | "out">("");
 
   useEffect(() => {
     async function loadProducts() {
@@ -69,7 +71,13 @@ export default function ProductsPage() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch("/api/products", { cache: "no-store" });
+        const params = new URLSearchParams();
+        if (query.trim()) params.set("q", query.trim());
+        if (stockFilter) params.set("stock", stockFilter);
+
+        const response = await fetch(`/api/products?${params.toString()}`, {
+          cache: "no-store",
+        });
         if (!response.ok) {
           const body = (await response.json().catch(() => null)) as
             | { error?: string }
@@ -89,7 +97,7 @@ export default function ProductsPage() {
     }
 
     void loadProducts();
-  }, []);
+  }, [query, stockFilter]);
 
   useEffect(() => {
     async function loadRecentOrders() {
@@ -163,6 +171,24 @@ export default function ProductsPage() {
         <Button href="/cart" size="sm" variant="outline">
           Go to Cart
         </Button>
+      </div>
+
+      <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_180px]">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search products"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+        />
+        <select
+          value={stockFilter}
+          onChange={(event) => setStockFilter(event.target.value as "" | "in" | "out")}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+        >
+          <option value="">All stock</option>
+          <option value="in">In stock</option>
+          <option value="out">Out of stock</option>
+        </select>
       </div>
 
       {toast ? (

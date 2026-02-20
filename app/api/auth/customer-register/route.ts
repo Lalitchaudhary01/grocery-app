@@ -5,6 +5,7 @@ import { z } from "zod";
 import { mobileToEmail, normalizeMobile } from "@/lib/customer-auth";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const customerRegisterSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -12,6 +13,14 @@ const customerRegisterSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const rateLimited = checkRateLimit({
+    request,
+    scope: "auth:customer-register",
+    max: 6,
+    windowMs: 60_000,
+  });
+  if (rateLimited) return rateLimited;
+
   try {
     const body = await readJsonBody<unknown>(request);
     if (!body) return badRequest("Invalid JSON payload.");

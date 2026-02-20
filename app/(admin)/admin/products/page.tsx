@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -45,18 +45,26 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState<ProductPayload>(EMPTY_FORM);
+  const [query, setQuery] = useState("");
+  const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [stockFilter, setStockFilter] = useState<"" | "in" | "out">("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      if (filterCategoryId) params.set("categoryId", filterCategoryId);
+      if (stockFilter) params.set("stock", stockFilter);
+
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch("/api/products", { cache: "no-store" }),
+        fetch(`/api/products?${params.toString()}`, { cache: "no-store" }),
         fetch("/api/categories", { cache: "no-store" }),
       ]);
 
@@ -83,11 +91,11 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterCategoryId, query, stockFilter]);
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [loadData]);
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -155,6 +163,45 @@ export default function AdminProductsPage() {
       <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
         <h1 className="text-xl font-bold text-neutral-900">Products</h1>
         <p className="mt-1 text-sm text-neutral-600">Manage grocery products and stock.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search products"
+          />
+          <select
+            value={filterCategoryId}
+            onChange={(event) => setFilterCategoryId(event.target.value)}
+            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-green-600 focus:outline-none"
+          >
+            <option value="">All categories</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={stockFilter}
+            onChange={(event) => setStockFilter(event.target.value as "" | "in" | "out")}
+            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-green-600 focus:outline-none"
+          >
+            <option value="">All stock</option>
+            <option value="in">In stock</option>
+            <option value="out">Out of stock</option>
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setQuery("");
+              setFilterCategoryId("");
+              setStockFilter("");
+            }}
+          >
+            Reset
+          </Button>
+        </div>
       </div>
 
       <form onSubmit={createProduct} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
@@ -219,6 +266,7 @@ export default function AdminProductsPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-green-50 text-left text-xs font-semibold uppercase tracking-wide text-green-900">
               <tr>
+                <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Price</th>
@@ -229,19 +277,27 @@ export default function AdminProductsPage() {
             <tbody className="divide-y divide-neutral-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-neutral-600">
+                  <td colSpan={6} className="px-4 py-6 text-center text-neutral-600">
                     Loading products...
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-neutral-600">
+                  <td colSpan={6} className="px-4 py-6 text-center text-neutral-600">
                     No products found.
                   </td>
                 </tr>
               ) : (
                 products.map((product) => (
                   <tr key={product.id}>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`/admin/products/${product.id}`}
+                        className="rounded-md border border-neutral-300 bg-neutral-50 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+                      >
+                        {product.id.slice(0, 8).toUpperCase()}
+                      </a>
+                    </td>
                     <td className="px-4 py-3 font-semibold text-neutral-900">{product.name}</td>
                     <td className="px-4 py-3 text-neutral-700">{product.category?.name || "-"}</td>
                     <td className="px-4 py-3 text-green-700">{formatINR(product.price)}</td>

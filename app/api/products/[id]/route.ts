@@ -28,30 +28,37 @@ const updateProductSchema = z
     },
   );
 
-function ensureAdmin(request: NextRequest): NextResponse | null {
+class ProductNotFoundError extends Error {
+  constructor() {
+    super("Product not found.");
+    this.name = "ProductNotFoundError";
+  }
+}
+
+function ensureAdmin(request: NextRequest): { adminId: string } | { error: NextResponse } {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
   const payload = verifyAuthToken(token);
   if (!payload) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
   if (payload.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    return { error: NextResponse.json({ error: "Forbidden." }, { status: 403 }) };
   }
 
-  return null;
+  return { adminId: payload.sub };
 }
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const authError = ensureAdmin(request);
-  if (authError) return authError;
+  const auth = ensureAdmin(request);
+  if ("error" in auth) return auth.error;
 
   const params = await context.params;
   const parsedParams = routeParamsSchema.safeParse(params);
@@ -72,24 +79,64 @@ export async function PATCH(
       );
     }
 
-    const product = await prisma.product.update({
-      where: { id: parsedParams.data.id },
-      data: {
-        name: parsedBody.data.name,
-        description: parsedBody.data.description,
-        price: parsedBody.data.price,
-        stock: parsedBody.data.stock,
-        imageUrl: parsedBody.data.imageUrl,
-        categoryId: parsedBody.data.categoryId,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
+    const product = await prisma.$transaction(async (tx) => {
+      const existing = await tx.product.findUnique({
+        where: { id: parsedParams.data.id },
+        select: { id: true, stock: true },
+      });
+
+      if (!existing) {
+        throw new ProductNotFoundError();
+      }
+
+      const updated = await tx.product.update({
+        where: { id: parsedParams.data.id },
+        data: {
+          name: parsedBody.data.name,
+          description: parsedBody.data.description,
+          price: parsedBody.data.price,
+          stock: parsedBody.data.stock,
+          imageUrl: parsedBody.data.imageUrl,
+          categoryId: parsedBody.data.categoryId,
+        },
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-      },
+      });
+
+      if (typeof parsedBody.data.stock === "number" && parsedBody.data.stock !== existing.stock) {
+        await tx.stockChangeHistory.create({
+          data: {
+            productId: existing.id,
+            changeType: "ADMIN_ADJUSTMENT",
+            quantityDelta: parsedBody.data.stock - existing.stock,
+            previousStock: existing.stock,
+            newStock: parsedBody.data.stock,
+            reason: "Admin updated product stock.",
+            changedByUserId: auth.adminId,
+          },
+        });
+      }
+
+      await tx.adminAuditLog.create({
+        data: {
+          adminUserId: auth.adminId,
+          action: "PRODUCT_UPDATED",
+          entityType: "PRODUCT",
+          entityId: updated.id,
+          meta: {
+            name: updated.name,
+            stock: updated.stock,
+          },
+        },
+      });
+
+      return updated;
     });
 
     return NextResponse.json({ product }, { status: 200 });
@@ -98,6 +145,10 @@ export async function PATCH(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2025"
     ) {
+      return NextResponse.json({ error: "Product not found." }, { status: 404 });
+    }
+
+    if (error instanceof ProductNotFoundError) {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
     }
 
@@ -122,8 +173,8 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const authError = ensureAdmin(request);
-  if (authError) return authError;
+  const auth = ensureAdmin(request);
+  if ("error" in auth) return auth.error;
 
   const params = await context.params;
   const parsedParams = routeParamsSchema.safeParse(params);
@@ -132,8 +183,18 @@ export async function DELETE(
   }
 
   try {
-    await prisma.product.delete({
+    const deleted = await prisma.product.delete({
       where: { id: parsedParams.data.id },
+      select: { id: true },
+    });
+
+    await prisma.adminAuditLog.create({
+      data: {
+        adminUserId: auth.adminId,
+        action: "PRODUCT_DELETED",
+        entityType: "PRODUCT",
+        entityId: deleted.id,
+      },
     });
 
     return NextResponse.json(

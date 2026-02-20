@@ -16,36 +16,92 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const orders = await prisma.order.findMany({
-      where: {
-        userId: payload.sub,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 100,
-      select: {
-        id: true,
-        status: true,
-        total: true,
-        createdAt: true,
-        updatedAt: true,
-        items: {
-          select: {
-            productId: true,
-            product: {
-              select: {
-                name: true,
+    let orders: Array<{
+      id: string;
+      status: string;
+      paymentStatus?: string;
+      total: number;
+      createdAt: Date;
+      updatedAt: Date;
+      items: Array<{
+        productId: string;
+        product: {
+          name: string;
+          imageUrl: string | null;
+        };
+      }>;
+    }> = [];
+
+    try {
+      orders = await prisma.order.findMany({
+        where: {
+          userId: payload.sub,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 100,
+        select: {
+          id: true,
+          status: true,
+          paymentStatus: true,
+          total: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              productId: true,
+              product: {
+                select: {
+                  name: true,
+                  imageUrl: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    } catch (queryError) {
+      if (!(queryError instanceof Error) || !queryError.message.includes("paymentStatus")) {
+        throw queryError;
+      }
+
+      orders = await prisma.order.findMany({
+        where: {
+          userId: payload.sub,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 100,
+        select: {
+          id: true,
+          status: true,
+          total: true,
+          createdAt: true,
+          updatedAt: true,
+          items: {
+            select: {
+              productId: true,
+              product: {
+                select: {
+                  name: true,
+                  imageUrl: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
 
     return NextResponse.json({ orders }, { status: 200 });
-  } catch {
-    return NextResponse.json({ error: "Failed to fetch orders." }, { status: 500 });
+  } catch (error) {
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Failed to fetch orders.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

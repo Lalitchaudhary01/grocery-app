@@ -10,6 +10,8 @@ export interface ReservedInventoryItem {
   name: string;
   unitPrice: number;
   quantity: number;
+  previousStock: number;
+  newStock: number;
 }
 
 export class InventoryError extends Error {
@@ -139,6 +141,8 @@ export async function reserveInventoryStock(
       name: product.name,
       unitPrice: product.price,
       quantity: item.quantity,
+      previousStock: product.stock,
+      newStock: product.stock - item.quantity,
     });
   }
 

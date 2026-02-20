@@ -6,39 +6,52 @@ import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME, CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
 });
 
 const updateStatusSchema = z.object({
-  status: z.nativeEnum(OrderStatus),
+  status: z.nativeEnum(OrderStatus).optional(),
+  paymentStatus: z.enum(["PENDING_VERIFICATION", "VERIFIED", "FAILED"]).optional(),
+  cancelReason: z.string().trim().min(5).max(300).optional(),
+}).refine((value) => value.status || value.paymentStatus, {
+  message: "At least one field is required.",
 });
 
-function ensureAdmin(request: NextRequest): NextResponse | null {
+function ensureAdmin(request: NextRequest): { adminId: string } | { error: NextResponse } {
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (!token) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
   const payload = verifyAuthToken(token);
   if (!payload) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
   }
 
   if (payload.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    return { error: NextResponse.json({ error: "Forbidden." }, { status: 403 }) };
   }
 
-  return null;
+  return { adminId: payload.sub };
 }
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const authError = ensureAdmin(request);
-  if (authError) return authError;
+  const rateLimited = checkRateLimit({
+    request,
+    scope: "orders:update-status",
+    max: 30,
+    windowMs: 60_000,
+  });
+  if (rateLimited) return rateLimited;
+
+  const auth = ensureAdmin(request);
+  if ("error" in auth) return auth.error;
 
   const params = await context.params;
   const parsedParams = paramsSchema.safeParse(params);
@@ -59,15 +72,97 @@ export async function PATCH(
       );
     }
 
-    const order = await prisma.order.update({
-      where: { id: parsedParams.data.id },
-      data: { status: parsedBody.data.status },
-      select: {
-        id: true,
-        status: true,
-        total: true,
-        updatedAt: true,
-      },
+    if (
+      parsedBody.data.status === "CANCELLED" &&
+      (!parsedBody.data.cancelReason || parsedBody.data.cancelReason.trim().length < 5)
+    ) {
+      return NextResponse.json(
+        { error: "Cancel reason is required when rejecting order." },
+        { status: 400 },
+      );
+    }
+
+    const order = await prisma.$transaction(async (tx) => {
+      const existing = await tx.order.findUnique({
+        where: { id: parsedParams.data.id },
+        select: {
+          id: true,
+          paymentStatus: true,
+        },
+      });
+
+      if (!existing) {
+        throw new Prisma.PrismaClientKnownRequestError("Not found", {
+          code: "P2025",
+          clientVersion: "0",
+        });
+      }
+
+      if (
+        parsedBody.data.status &&
+        ["CONFIRMED", "SHIPPED", "DELIVERED"].includes(parsedBody.data.status) &&
+        existing.paymentStatus !== "VERIFIED"
+      ) {
+        throw new Error("Verify payment first before processing order.");
+      }
+
+      const updated = await tx.order.update({
+        where: { id: parsedParams.data.id },
+        data: {
+          status: parsedBody.data.status ?? undefined,
+          paymentStatus: parsedBody.data.paymentStatus ?? undefined,
+          cancelReason:
+            parsedBody.data.status === "CANCELLED"
+              ? parsedBody.data.cancelReason?.trim()
+              : null,
+          paymentNote:
+            parsedBody.data.paymentStatus === "VERIFIED"
+              ? "Payment verified by admin."
+              : parsedBody.data.paymentStatus === "FAILED"
+                ? "Payment not found in statement."
+                : undefined,
+        },
+        select: {
+          id: true,
+          status: true,
+          paymentStatus: true,
+          total: true,
+          updatedAt: true,
+          cancelReason: true,
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: updated.id,
+          status: updated.status,
+          note:
+            updated.status === "CANCELLED"
+              ? parsedBody.data.cancelReason?.trim() || "Order rejected by admin."
+              : parsedBody.data.paymentStatus === "VERIFIED"
+                ? "Payment verified by admin."
+                : parsedBody.data.paymentStatus === "FAILED"
+                  ? "Payment marked failed by admin."
+                  : "Order status updated by admin.",
+          changedByUserId: auth.adminId,
+        },
+      });
+
+      await tx.adminAuditLog.create({
+        data: {
+          adminUserId: auth.adminId,
+          action: "ORDER_STATUS_UPDATED",
+          entityType: "ORDER",
+          entityId: updated.id,
+          meta: {
+            status: updated.status,
+            paymentStatus: updated.paymentStatus,
+            cancelReason: updated.cancelReason,
+          },
+        },
+      });
+
+      return updated;
     });
 
     return NextResponse.json(
@@ -85,10 +180,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
 
-    return NextResponse.json(
-      { error: "Failed to update order status." },
-      { status: 500 },
-    );
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Failed to update order status.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -131,6 +227,7 @@ export async function GET(
             product: {
               select: {
                 name: true,
+                imageUrl: true,
               },
             },
           },
@@ -138,10 +235,21 @@ export async function GET(
         address: {
           select: {
             street: true,
+            phone: true,
             city: true,
             state: true,
             postalCode: true,
             country: true,
+          },
+        },
+        statusHistory: {
+          select: {
+            status: true,
+            note: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: "asc",
           },
         },
       },
@@ -160,6 +268,7 @@ export async function GET(
         order: {
           id: order.id,
           status: order.status,
+          paymentStatus: order.paymentStatus,
           total: order.total,
           createdAt: order.createdAt,
           updatedAt: order.updatedAt,
@@ -167,7 +276,12 @@ export async function GET(
             name: order.user.name,
             email: order.user.email,
           },
+          customerPhone: order.address?.phone ?? null,
           items: order.items,
+          cancelReason: order.cancelReason,
+          paymentMethod: order.paymentMethod,
+          paymentNote: order.paymentNote,
+          timeline: order.statusHistory,
           deliveryAddress: order.address
             ? `${order.address.street}, ${order.address.city}, ${order.address.state}, ${order.address.postalCode}, ${order.address.country}`
             : null,
@@ -175,11 +289,12 @@ export async function GET(
       },
       { status: 200 },
     );
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to fetch order status." },
-      { status: 500 },
-    );
+  } catch (error) {
+    const message =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? error.message
+        : "Failed to fetch order status.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
