@@ -6,9 +6,13 @@ import {
 } from "@/features/inventory/services";
 
 export interface CreateOrderInput {
-  customer: {
-    email: string;
-    name?: string;
+  userId: string;
+  deliveryAddress: {
+    street: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
   };
   items: InventoryOrderItemInput[];
 }
@@ -40,30 +44,39 @@ function calculateTotalAmount(items: ReservedInventoryItem[]): number {
 
 export async function createOrder(input: CreateOrderInput): Promise<CreatedOrderResult> {
   return prisma.$transaction(async (tx) => {
-    const customer = await tx.user.upsert({
-      where: { email: input.customer.email },
-      create: {
-        email: input.customer.email,
-        name: input.customer.name,
-      },
-      update: input.customer.name
-        ? {
-            name: input.customer.name,
-          }
-        : {},
+    const customer = await tx.user.findUnique({
+      where: { id: input.userId },
       select: {
         id: true,
         email: true,
         name: true,
       },
     });
+    if (!customer) {
+      throw new Error("Customer not found.");
+    }
 
     const reservedItems = await reserveInventoryStock(tx, input.items);
     const totalAmount = calculateTotalAmount(reservedItems);
 
+    const savedAddress = await tx.address.create({
+      data: {
+        userId: customer.id,
+        street: input.deliveryAddress.street,
+        city: input.deliveryAddress.city,
+        state: input.deliveryAddress.state,
+        postalCode: input.deliveryAddress.postalCode,
+        country: input.deliveryAddress.country,
+      },
+      select: {
+        id: true,
+      },
+    });
+
     const order = await tx.order.create({
       data: {
         userId: customer.id,
+        addressId: savedAddress.id,
         total: totalAmount,
         items: {
           createMany: {

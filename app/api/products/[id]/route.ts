@@ -48,12 +48,13 @@ function ensureAdmin(request: NextRequest): NextResponse | null {
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } },
+  context: { params: Promise<{ id: string }> },
 ) {
   const authError = ensureAdmin(request);
   if (authError) return authError;
 
-  const parsedParams = routeParamsSchema.safeParse(context.params);
+  const params = await context.params;
+  const parsedParams = routeParamsSchema.safeParse(params);
   if (!parsedParams.success) {
     return NextResponse.json({ error: "Invalid product id." }, { status: 400 });
   }
@@ -119,12 +120,13 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } },
+  context: { params: Promise<{ id: string }> },
 ) {
   const authError = ensureAdmin(request);
   if (authError) return authError;
 
-  const parsedParams = routeParamsSchema.safeParse(context.params);
+  const params = await context.params;
+  const parsedParams = routeParamsSchema.safeParse(params);
   if (!parsedParams.success) {
     return NextResponse.json({ error: "Invalid product id." }, { status: 400 });
   }

@@ -7,12 +7,17 @@ import {
   InsufficientStockError,
   ProductNotFoundError,
 } from "@/features/inventory/services";
+import { verifyAuthToken } from "@/features/auth/jwt";
+import { CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 
 const createOrderSchema = z.object({
-  customer: z.object({
-    email: z.email().toLowerCase(),
-    name: z.string().trim().min(2).max(100).optional(),
+  deliveryAddress: z.object({
+    street: z.string().trim().min(5).max(200),
+    city: z.string().trim().min(2).max(80),
+    state: z.string().trim().min(2).max(80),
+    postalCode: z.string().trim().regex(/^\d{6}$/, "Invalid postal code."),
+    country: z.string().trim().min(2).max(80).default("India"),
   }),
   items: z
     .array(
@@ -26,6 +31,22 @@ const createOrderSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const token = request.cookies.get(CUSTOMER_AUTH_COOKIE_NAME)?.value;
+    if (!token) {
+      return NextResponse.json(
+        { error: "Please login before placing order." },
+        { status: 401 },
+      );
+    }
+
+    const payload = verifyAuthToken(token);
+    if (!payload || payload.role !== "CUSTOMER") {
+      return NextResponse.json(
+        { error: "Please login before placing order." },
+        { status: 401 },
+      );
+    }
+
     const body = await readJsonBody<unknown>(request);
     if (!body) {
       return badRequest("Invalid JSON payload.");
@@ -39,7 +60,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await createOrder(parsed.data);
+    const result = await createOrder({
+      userId: payload.sub,
+      deliveryAddress: {
+        street: parsed.data.deliveryAddress.street,
+        city: parsed.data.deliveryAddress.city,
+        state: parsed.data.deliveryAddress.state,
+        postalCode: parsed.data.deliveryAddress.postalCode,
+        country: parsed.data.deliveryAddress.country || "India",
+      },
+      items: parsed.data.items,
+    });
 
     return NextResponse.json(
       {

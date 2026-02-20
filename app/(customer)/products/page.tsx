@@ -1,170 +1,257 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
-interface Product {
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+
+type Product = {
   id: string;
   name: string;
   price: number;
-  imageUrl: string | null;
   stock: number;
-}
+  imageUrl: string | null;
+};
 
-interface ProductsApiResponse {
-  products: Product[];
-}
+type ProductsResponse = { products?: Product[] };
+type PublicOrder = {
+  id: string;
+  status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+  total: number;
+};
+type PublicOrderResponse = {
+  order?: PublicOrder;
+};
 
-interface StoredCartItem {
+type CartItem = {
   product: Product;
   quantity: number;
-}
+};
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1584473457493-17c4f1f64e5d?auto=format&fit=crop&w=1200&q=80";
 const CART_STORAGE_KEY = "customer_cart";
+const ORDER_IDS_STORAGE_KEY = "customer_order_ids";
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
 
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat("en-US", {
+function formatINR(value: number) {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
-  }).format(price);
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
-export default function CustomerProductsPage() {
+function readCart(): CartItem[] {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as CartItem[];
+  } catch {
+    return [];
+  }
+}
+
+export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [addingMap, setAddingMap] = useState<Record<string, boolean>>({});
-  const [notice, setNotice] = useState<string | null>(null);
-
-  async function fetchProducts() {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch("/api/products", { cache: "no-store" });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(payload?.error || "Unable to load products.");
-      }
-
-      const data: ProductsApiResponse = await response.json();
-      setProducts(Array.isArray(data.products) ? data.products : []);
-    } catch (fetchError) {
-      const message =
-        fetchError instanceof Error
-          ? fetchError.message
-          : "Failed to load products. Please refresh.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [recentOrders, setRecentOrders] = useState<PublicOrder[]>([]);
 
   useEffect(() => {
-    void fetchProducts();
+    async function loadProducts() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/products", { cache: "no-store" });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(body?.error || "Products load failed.");
+        }
+
+        const data = (await response.json()) as ProductsResponse;
+        setProducts(Array.isArray(data.products) ? data.products : []);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error ? loadError.message : "Products load failed.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadProducts();
   }, []);
 
-  const hasProducts = useMemo(() => products.length > 0, [products.length]);
-
-  async function handleAddToCart(productId: string) {
-    setNotice(null);
-    setAddingMap((prev) => ({ ...prev, [productId]: true }));
-    try {
-      const selectedProduct = products.find((product) => product.id === productId);
-      if (!selectedProduct) return;
-      if (selectedProduct.stock <= 0) {
-        setNotice("This product is currently out of stock.");
+  useEffect(() => {
+    async function loadRecentOrders() {
+      const raw = localStorage.getItem(ORDER_IDS_STORAGE_KEY);
+      if (!raw) {
+        setRecentOrders([]);
         return;
       }
 
-      const rawCart = localStorage.getItem(CART_STORAGE_KEY);
-      let parsedCart: StoredCartItem[] = [];
-
-      if (rawCart) {
-        try {
-          const data: unknown = JSON.parse(rawCart);
-          if (Array.isArray(data)) {
-            parsedCart = data as StoredCartItem[];
-          }
-        } catch {
-          parsedCart = [];
+      let orderIds: string[] = [];
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          orderIds = parsed.filter((id): id is string => typeof id === "string");
         }
+      } catch {
+        orderIds = [];
       }
-      const existingItem = parsedCart.find(
-        (item) => item.product.id === selectedProduct.id,
+
+      const topIds = orderIds.slice(0, 5);
+      if (topIds.length === 0) {
+        setRecentOrders([]);
+        return;
+      }
+
+      const responses = await Promise.all(
+        topIds.map(async (id) => {
+          const response = await fetch(`/api/orders/${id}`, { cache: "no-store" });
+          if (!response.ok) return null;
+          const body = (await response.json()) as PublicOrderResponse;
+          return body.order ?? null;
+        }),
       );
 
-      if (existingItem) {
-        const nextQuantity = existingItem.quantity + 1;
-        if (nextQuantity > selectedProduct.stock) {
-          setNotice("You have reached the maximum available stock for this item.");
-          return;
-        }
-        existingItem.quantity = nextQuantity;
+      setRecentOrders(responses.filter((order): order is PublicOrder => order !== null));
+    }
+
+    void loadRecentOrders();
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  function addToCart(product: Product) {
+    setAddingId(product.id);
+    try {
+      const cart = readCart();
+      const existing = cart.find((item) => item.product.id === product.id);
+
+      if (existing) {
+        existing.quantity += 1;
       } else {
-        parsedCart.push({ product: selectedProduct, quantity: 1 });
+        cart.push({ product, quantity: 1 });
       }
 
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(parsedCart));
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
       window.dispatchEvent(new Event("storage"));
-      setNotice(`Added "${selectedProduct.name}" to cart.`);
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    } catch {
-      setNotice("Unable to add product to cart right now.");
+      setToast(`${product.name} added to cart`);
     } finally {
-      setAddingMap((prev) => ({ ...prev, [productId]: false }));
+      setAddingId(null);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-white px-4 py-10 sm:px-6 lg:px-10">
-      <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-8 flex flex-col gap-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
-            Products
-          </h1>
-          <p className="text-sm text-neutral-600">
-            Browse available items and add them to your cart.
-          </p>
-        </div>
+    <div className="bg-neutral-100 px-4 py-6 sm:px-6">
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-neutral-900 sm:text-2xl">All Products</h1>
+        <Button href="/cart" size="sm" variant="outline">
+          Go to Cart
+        </Button>
+      </div>
 
-        {loading ? (
-          <p className="text-sm text-neutral-500">Loading products...</p>
-        ) : error ? (
-          <div className="space-y-3">
-            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </p>
-            <button
-              type="button"
-              onClick={() => void fetchProducts()}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
-            >
-              Retry
-            </button>
-          </div>
-        ) : !hasProducts ? (
-          <p className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600">
-            No products found.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {notice ? (
-              <p className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700">
-                {notice}
-              </p>
-            ) : null}
-            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {products.map((product) => (
-                <article
-                  key={product.id}
-                  className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm"
+      {toast ? (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-800">
+          <span>{toast}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="rounded-md px-2 py-0.5 text-xs font-bold text-green-800 hover:bg-green-100"
+          >
+            ✕
+          </button>
+        </div>
+      ) : null}
+
+      {recentOrders.length > 0 ? (
+        <section className="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <h2 className="text-sm font-bold text-neutral-900">Your Recent Orders</h2>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {recentOrders.map((order) => {
+              const label =
+                order.status === "CONFIRMED"
+                  ? "Accepted"
+                  : order.status === "CANCELLED"
+                    ? "Rejected"
+                    : order.status === "PENDING"
+                      ? "Pending"
+                      : order.status === "SHIPPED"
+                        ? "Out for Delivery"
+                        : "Delivered";
+
+              const badgeClass =
+                order.status === "CONFIRMED"
+                  ? "bg-green-100 text-green-800"
+                  : order.status === "CANCELLED"
+                    ? "bg-red-100 text-red-700"
+                    : order.status === "PENDING"
+                      ? "bg-amber-100 text-amber-800"
+                      : order.status === "SHIPPED"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-emerald-100 text-emerald-700";
+
+              return (
+                <div
+                  key={order.id}
+                  className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm"
                 >
-                  <div className="relative aspect-square w-full bg-neutral-100">
+                  <span className="font-semibold text-neutral-800">
+                    #{order.id.slice(0, 8).toUpperCase()}
+                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {loading ? (
+        <div className="rounded-xl bg-white p-4 text-sm text-neutral-600 shadow-sm">
+          Loading products...
+        </div>
+      ) : error ? (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+          <Button href="/products" size="sm" variant="outline">
+            Refresh
+          </Button>
+        </div>
+      ) : products.length === 0 ? (
+        <div className="rounded-xl bg-white p-4 text-sm text-neutral-600 shadow-sm">
+          No products found.
+        </div>
+      ) : (
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {products.map((product) => {
+            const inStock = product.stock > 0;
+
+            return (
+              <article
+                key={product.id}
+                className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm"
+              >
+                <Link href={`/products/${product.id}`} className="block">
+                  <div className="relative aspect-[4/3] w-full bg-neutral-100">
                     <Image
                       src={product.imageUrl || FALLBACK_IMAGE}
                       alt={product.name}
@@ -173,37 +260,33 @@ export default function CustomerProductsPage() {
                       className="object-cover"
                     />
                   </div>
-                  <div className="space-y-3 p-4">
-                    <h2 className="line-clamp-2 text-base font-medium text-neutral-900">
-                      {product.name}
-                    </h2>
-                    <p className="text-lg font-semibold text-neutral-800">
-                      {formatPrice(product.price)}
+                </Link>
+                <div className="space-y-2 p-3">
+                  <h2 className="line-clamp-2 text-sm font-semibold text-neutral-900">
+                    {product.name}
+                  </h2>
+                  <div className="flex items-center justify-between">
+                    <p className="text-base font-extrabold text-green-700">
+                      {formatINR(product.price)}
                     </p>
-                    <p className="text-xs text-neutral-500">
-                      {product.stock > 0
-                        ? `${product.stock} in stock`
-                        : "Out of stock"}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void handleAddToCart(product.id)}
-                      disabled={Boolean(addingMap[product.id]) || product.stock <= 0}
-                      className="inline-flex w-full items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
-                    >
-                      {product.stock <= 0
-                        ? "Out of Stock"
-                        : addingMap[product.id]
-                          ? "Adding..."
-                          : "Add to Cart"}
-                    </button>
+                    <Badge tone={inStock ? "success" : "danger"}>
+                      {inStock ? `${product.stock} in stock` : "Out of stock"}
+                    </Badge>
                   </div>
-                </article>
-              ))}
-            </section>
-          </div>
-        )}
-      </div>
+                  <button
+                    type="button"
+                    onClick={() => addToCart(product)}
+                    disabled={!inStock || addingId === product.id}
+                    className="inline-flex w-full items-center justify-center rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                  >
+                    {addingId === product.id ? "Adding..." : "Add to Cart"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </div>
   );
 }
