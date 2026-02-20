@@ -100,6 +100,7 @@ export async function GET(request: NextRequest) {
         address: {
           select: {
             street: true,
+            phone: true,
             city: true,
           },
         },

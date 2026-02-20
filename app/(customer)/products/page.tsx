@@ -34,6 +34,15 @@ type CartItem = {
 const CART_STORAGE_KEY = "customer_cart";
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
+const PRICE_FALLBACK_MAX = 1000;
+
+const CATEGORY_ICONS: Array<{ matcher: RegExp; icon: string }> = [
+  { matcher: /aata|atta|anaaj|anaj|grain|rice|chawal|daal|dal/i, icon: "🌾" },
+  { matcher: /oil|tel|ghee/i, icon: "🛢️" },
+  { matcher: /masala|spice|salt|namak/i, icon: "🧂" },
+  { matcher: /safai|clean|harpic|detergent/i, icon: "🧹" },
+  { matcher: /soap|care|personal|shampoo/i, icon: "🧴" },
+];
 
 function readCart(): CartItem[] {
   try {
@@ -55,10 +64,23 @@ function formatINR(value: number) {
   }).format(value);
 }
 
+function categoryIcon(name: string): string {
+  const matched = CATEGORY_ICONS.find((entry) => entry.matcher.test(name));
+  return matched?.icon ?? "🛒";
+}
+
+function getBrandFromName(name: string): string {
+  const normalized = name.trim();
+  if (!normalized) return "Local";
+  const [firstWord] = normalized.split(/\s+/);
+  if (!firstWord) return "Local";
+  return firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
+}
+
 export default function ProductsPage() {
   const searchParams = useSearchParams();
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,18 +88,18 @@ export default function ProductsPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [stockFilter, setStockFilter] = useState<"" | "in" | "out">("");
+  const [categoryId, setCategoryId] = useState("all");
   const [sortBy, setSortBy] = useState<"popular" | "priceLow" | "priceHigh" | "name">(
     "popular",
   );
-  const [priceCap, setPriceCap] = useState(1000);
+  const [priceCap, setPriceCap] = useState(PRICE_FALLBACK_MAX);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
 
   useEffect(() => {
     const qFromQuery = searchParams.get("q") ?? "";
     const categoryFromQuery = searchParams.get("categoryId") ?? "";
     setQuery(qFromQuery);
-    setCategoryId(categoryFromQuery);
+    setCategoryId(categoryFromQuery || "all");
   }, [searchParams]);
 
   useEffect(() => {
@@ -86,13 +108,8 @@ export default function ProductsPage() {
         setLoading(true);
         setError(null);
 
-        const params = new URLSearchParams();
-        if (query.trim()) params.set("q", query.trim());
-        if (categoryId) params.set("categoryId", categoryId);
-        if (stockFilter) params.set("stock", stockFilter);
-
         const [productsRes, categoriesRes] = await Promise.all([
-          fetch(`/api/products?${params.toString()}`, { cache: "no-store" }),
+          fetch("/api/products", { cache: "no-store" }),
           fetch("/api/categories", { cache: "no-store" }),
         ]);
 
@@ -108,7 +125,7 @@ export default function ProductsPage() {
           | CategoriesResponse
           | null;
 
-        setProducts(Array.isArray(productsData.products) ? productsData.products : []);
+        setAllProducts(Array.isArray(productsData.products) ? productsData.products : []);
         setCategories(Array.isArray(categoriesData?.categories) ? categoriesData.categories : []);
       } catch (loadError) {
         setError(
@@ -120,7 +137,7 @@ export default function ProductsPage() {
     }
 
     void loadData();
-  }, [query, categoryId, stockFilter]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -129,29 +146,61 @@ export default function ProductsPage() {
   }, [toast]);
 
   const maxPrice = useMemo(() => {
-    if (products.length === 0) return 1000;
-    return Math.max(1000, ...products.map((product) => Math.ceil(product.price)));
-  }, [products]);
+    if (allProducts.length === 0) return PRICE_FALLBACK_MAX;
+    return Math.max(
+      PRICE_FALLBACK_MAX,
+      ...allProducts.map((product) => Math.ceil(product.price)),
+    );
+  }, [allProducts]);
 
   useEffect(() => {
     setPriceCap((prev) => Math.min(prev, maxPrice));
-    if (products.length > 0 && priceCap === 1000 && maxPrice < 1000) {
+    if (
+      allProducts.length > 0 &&
+      priceCap === PRICE_FALLBACK_MAX &&
+      maxPrice < PRICE_FALLBACK_MAX
+    ) {
       setPriceCap(maxPrice);
     }
-  }, [maxPrice, priceCap, products.length]);
+  }, [allProducts.length, maxPrice, priceCap]);
 
   const categoryCounts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const product of products) {
+    for (const product of allProducts) {
       const key = product.category?.id;
       if (!key) continue;
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return map;
-  }, [products]);
+  }, [allProducts]);
+
+  const brandList = useMemo(() => {
+    const values = Array.from(
+      new Set(allProducts.map((product) => getBrandFromName(product.name))),
+    );
+    return values.slice(0, 6);
+  }, [allProducts]);
 
   const displayedProducts = useMemo(() => {
-    const filtered = products.filter((product) => product.price <= priceCap);
+    const queryLower = query.trim().toLowerCase();
+    const filtered = allProducts.filter((product) => {
+      const matchesCategory =
+        categoryId === "all" ? true : product.category?.id === categoryId;
+      const matchesPrice = product.price <= priceCap;
+      const matchesQuery =
+        queryLower.length === 0
+          ? true
+          : `${product.name} ${product.description ?? ""} ${
+              product.category?.name ?? ""
+            }`
+              .toLowerCase()
+              .includes(queryLower);
+      const productBrand = getBrandFromName(product.name);
+      const matchesBrand =
+        selectedBrands.length === 0 ? true : selectedBrands.includes(productBrand);
+
+      return matchesCategory && matchesPrice && matchesQuery && matchesBrand;
+    });
 
     const sorted = [...filtered];
     if (sortBy === "priceLow") sorted.sort((a, b) => a.price - b.price);
@@ -159,7 +208,15 @@ export default function ProductsPage() {
     if (sortBy === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
     if (sortBy === "popular") sorted.sort((a, b) => b.stock - a.stock);
     return sorted;
-  }, [priceCap, products, sortBy]);
+  }, [allProducts, categoryId, priceCap, query, selectedBrands, sortBy]);
+
+  const allProductsCount = allProducts.length;
+
+  function toggleBrand(brand: string) {
+    setSelectedBrands((prev) =>
+      prev.includes(brand) ? prev.filter((item) => item !== brand) : [...prev, brand],
+    );
+  }
 
   function addToCart(product: Product) {
     if (product.stock <= 0) return;
@@ -185,23 +242,23 @@ export default function ProductsPage() {
       <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="h-fit overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
           <div className="border-b border-neutral-200 p-5">
-            <h2 className="text-xl font-extrabold text-neutral-900">FILTERS</h2>
+            <h2 className="text-3xl font-extrabold text-neutral-900">FILTERS</h2>
           </div>
 
           <div className="space-y-4 border-b border-neutral-200 p-5">
-            <h3 className="text-lg font-extrabold text-neutral-900">CATEGORY</h3>
+            <h3 className="text-3xl font-extrabold text-neutral-900">CATEGORY</h3>
             <button
               type="button"
-              onClick={() => setCategoryId("")}
+              onClick={() => setCategoryId("all")}
               className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold ${
-                categoryId === ""
+                categoryId === "all"
                   ? "bg-green-100 text-green-900"
                   : "bg-neutral-50 text-neutral-700 hover:bg-neutral-100"
               }`}
             >
-              <span>All Products</span>
+              <span>🛒 Sab Products</span>
               <span className="rounded-full bg-white px-2 py-0.5 text-xs">
-                {products.length}
+                {allProductsCount}
               </span>
             </button>
 
@@ -217,7 +274,9 @@ export default function ProductsPage() {
                       : "text-neutral-700 hover:bg-neutral-100"
                   }`}
                 >
-                  <span>{category.name}</span>
+                  <span>
+                    {categoryIcon(category.name)} {category.name}
+                  </span>
                   <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs">
                     {categoryCounts.get(category.id) ?? 0}
                   </span>
@@ -226,8 +285,8 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          <div className="space-y-4 p-5">
-            <h3 className="text-lg font-extrabold text-neutral-900">PRICE RANGE</h3>
+          <div className="space-y-4 border-b border-neutral-200 p-5">
+            <h3 className="text-3xl font-extrabold text-neutral-900">PRICE RANGE</h3>
             <input
               type="range"
               min={0}
@@ -241,23 +300,28 @@ export default function ProductsPage() {
               <span>₹{Math.round(maxPrice / 2)}</span>
               <span>₹{maxPrice}</span>
             </div>
+          </div>
 
-            <h3 className="pt-2 text-lg font-extrabold text-neutral-900">STOCK</h3>
-            <div className="flex flex-wrap gap-2">
-              {(["", "in", "out"] as const).map((key) => (
-                <button
-                  key={key || "all"}
-                  type="button"
-                  onClick={() => setStockFilter(key)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    stockFilter === key
-                      ? "bg-green-700 text-white"
-                      : "bg-neutral-100 text-neutral-700"
-                  }`}
+          <div className="space-y-4 p-5">
+            <h3 className="text-3xl font-extrabold text-neutral-900">BRAND</h3>
+            <div className="space-y-2">
+              {brandList.map((brand) => (
+                <label
+                  key={brand}
+                  className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-neutral-700"
                 >
-                  {key === "" ? "All" : key === "in" ? "In Stock" : "Out of Stock"}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={selectedBrands.includes(brand)}
+                    onChange={() => toggleBrand(brand)}
+                    className="h-4 w-4 rounded border-neutral-300 accent-green-700"
+                  />
+                  <span>{brand}</span>
+                </label>
               ))}
+              {brandList.length === 0 ? (
+                <p className="text-sm text-neutral-500">No brands available.</p>
+              ) : null}
             </div>
           </div>
         </aside>
@@ -265,18 +329,20 @@ export default function ProductsPage() {
         <section className="space-y-4">
           <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xl font-bold text-neutral-900">
+              <p className="text-3xl font-bold text-neutral-900">
                 {displayedProducts.length} products{" "}
                 {query.trim() ? (
-                  <span className="font-medium text-neutral-500">- "{query.trim()}"</span>
+                  <span className="font-medium text-neutral-500">
+                    - &quot;{query.trim()}&quot;
+                  </span>
                 ) : null}
               </p>
               <div className="flex items-center gap-2">
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search"
-                  className="rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+                  placeholder="Search products"
+                  className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium focus:border-green-600 focus:outline-none"
                 />
                 <select
                   value={sortBy}
@@ -292,6 +358,12 @@ export default function ProductsPage() {
                   <option value="priceHigh">Price: High to Low</option>
                   <option value="name">Name A-Z</option>
                 </select>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-300 text-neutral-500">
+                  ⊞
+                </span>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-300 text-neutral-500">
+                  ☰
+                </span>
               </div>
             </div>
           </div>
@@ -351,10 +423,10 @@ export default function ProductsPage() {
                     </Link>
 
                     <div className="space-y-1.5 p-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-green-700">
+                      <p className="text-sm font-bold uppercase tracking-wide text-green-700">
                         {product.category?.name || "General"}
                       </p>
-                      <h3 className="line-clamp-1 text-3xl font-extrabold text-neutral-900">
+                      <h3 className="line-clamp-1 text-2xl font-bold text-neutral-900">
                         {product.name}
                       </h3>
                       <p className="text-lg text-neutral-500">
@@ -363,7 +435,7 @@ export default function ProductsPage() {
                       <div className="mt-2 flex items-end justify-between">
                         <div>
                           <p className="text-4xl font-extrabold text-green-700">
-                            ₹{Math.round(product.price)}
+                            {formatINR(product.price)}
                           </p>
                           <p className="text-xl text-neutral-400 line-through">
                             ₹{originalPrice}
