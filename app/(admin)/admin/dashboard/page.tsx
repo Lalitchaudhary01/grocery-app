@@ -216,7 +216,7 @@ export default async function AdminDashboardPage() {
   }
 
   const categorySaleRows = allCategories
-    .map((category) => ({
+    .map((category: { id: string; name: string }) => ({
       id: category.id,
       name: category.name,
       total: totalRevenueByCategoryId.get(category.id) ?? 0,
