@@ -291,8 +291,9 @@ export default async function AdminDashboardPage() {
         select: { id: true, name: true },
       })
     : [];
-  const topProductNameById = new Map(
-    topProducts.map((product: { id: string; name: string }) => [product.id, product.name]),
+  const topProductsTyped = topProducts as Array<{ id: string; name: string }>;
+  const topProductNameById: Map<string, string> = new Map<string, string>(
+    topProductsTyped.map((product): [string, string] => [product.id, product.name]),
   );
 
   const topProductSections = [
