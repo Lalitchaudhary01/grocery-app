@@ -8,6 +8,7 @@ import { badRequest, readJsonBody } from "@/lib/http";
 import { normalizeProductImageUrl } from "@/lib/image";
 import { parseProductDescription, encodeProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
+import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 
 const createProductSchema = z.object({
   name: z.string().trim().min(2).max(200),
@@ -207,10 +208,7 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-    ) {
+    if (hasPrismaErrorCode(error, "P2003")) {
       return NextResponse.json(
         { error: "Invalid category reference." },
         { status: 400 },

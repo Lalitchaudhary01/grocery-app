@@ -7,6 +7,7 @@ import { AUTH_COOKIE_NAME, CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { ORDER_STATUS_VALUES } from "@/lib/order-enums";
 import { prisma } from "@/lib/prisma";
+import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 const paramsSchema = z.object({
@@ -93,10 +94,7 @@ export async function PATCH(
       });
 
       if (!existing) {
-        throw new Prisma.PrismaClientKnownRequestError("Not found", {
-          code: "P2025",
-          clientVersion: "0",
-        });
+        throw new Error("ORDER_NOT_FOUND");
       }
 
       if (
@@ -174,10 +172,10 @@ export async function PATCH(
       { status: 200 },
     );
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
+    if (error instanceof Error && error.message === "ORDER_NOT_FOUND") {
+      return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+    if (hasPrismaErrorCode(error, "P2025")) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
 

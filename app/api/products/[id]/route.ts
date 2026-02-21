@@ -8,6 +8,7 @@ import { badRequest, readJsonBody } from "@/lib/http";
 import { normalizeProductImageUrl } from "@/lib/image";
 import { encodeProductDescription, parseProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
+import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 
 const routeParamsSchema = z.object({
   id: z.string().uuid(),
@@ -220,10 +221,7 @@ export async function PATCH(
       { status: 200 },
     );
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
+    if (hasPrismaErrorCode(error, "P2025")) {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
     }
 
@@ -231,10 +229,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
     }
 
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-    ) {
+    if (hasPrismaErrorCode(error, "P2003")) {
       return NextResponse.json(
         { error: "Invalid category reference." },
         { status: 400 },
@@ -281,10 +276,7 @@ export async function DELETE(
       { status: 200 },
     );
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
+    if (hasPrismaErrorCode(error, "P2025")) {
       return NextResponse.json({ error: "Product not found." }, { status: 404 });
     }
 

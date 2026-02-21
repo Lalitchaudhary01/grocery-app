@@ -6,6 +6,7 @@ import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -72,10 +73,10 @@ export async function PATCH(
 
     return NextResponse.json({ category }, { status: 200 });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+    if (hasPrismaErrorCode(error, "P2025")) {
       return NextResponse.json({ error: "Category not found." }, { status: 404 });
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    if (hasPrismaErrorCode(error, "P2002")) {
       return NextResponse.json({ error: "Category name already exists." }, { status: 409 });
     }
     return NextResponse.json({ error: "Failed to update category." }, { status: 500 });
@@ -132,7 +133,7 @@ export async function DELETE(
     if (error instanceof Error && error.message === "CATEGORY_NOT_FOUND") {
       return NextResponse.json({ error: "Category not found." }, { status: 404 });
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+    if (hasPrismaErrorCode(error, "P2025")) {
       return NextResponse.json({ error: "Category not found." }, { status: 404 });
     }
     if (error instanceof Error) {

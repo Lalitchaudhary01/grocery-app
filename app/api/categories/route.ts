@@ -6,6 +6,7 @@ import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -67,10 +68,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ category }, { status: 201 });
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
+    if (hasPrismaErrorCode(error, "P2002")) {
       return NextResponse.json(
         { error: "Category already exists." },
         { status: 409 },
