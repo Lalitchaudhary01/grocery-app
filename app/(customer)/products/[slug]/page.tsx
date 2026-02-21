@@ -34,6 +34,14 @@ type RelatedProduct = {
   imageUrl: string | null;
 };
 
+type VariantCandidate = {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+  description: string | null;
+};
+
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
 
@@ -110,7 +118,7 @@ async function getVariantProducts(product: Product): Promise<RelatedProduct[]> {
   if (!variantGroup) return [];
 
   try {
-    const candidates = await prisma.product.findMany({
+    const candidates = (await prisma.product.findMany({
       where: {
         id: { not: product.id },
       },
@@ -125,14 +133,14 @@ async function getVariantProducts(product: Product): Promise<RelatedProduct[]> {
       orderBy: {
         createdAt: "desc",
       },
-    });
+    })) as VariantCandidate[];
 
     return candidates
-      .filter((candidate) => {
+      .filter((candidate: VariantCandidate) => {
         const meta = parseProductDescription(candidate.description);
         return meta.meta.variantGroup === variantGroup && meta.meta.isActive !== false;
       })
-      .map((candidate) => ({
+      .map((candidate: VariantCandidate) => ({
         id: candidate.id,
         name: candidate.name,
         price: candidate.price,
