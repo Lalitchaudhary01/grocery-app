@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
       data: {
         name: parsed.data.name,
         email,
-        role: Role.USER,
+        role: "USER",
       },
       select: {
         id: true,

@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -47,7 +46,7 @@ export async function POST(request: Request) {
         name: true,
       },
     });
-    if (!user || user.role !== Role.USER) {
+    if (!user || user.role !== "USER") {
       return NextResponse.json(
         { error: "User not registered. Please register first." },
         { status: 404 },

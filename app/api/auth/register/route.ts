@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     const adminCount = await prisma.user.count({
-      where: { role: Role.ADMIN },
+      where: { role: "ADMIN" },
     });
 
     if (adminCount > 0) {
@@ -82,7 +81,7 @@ export async function POST(request: Request) {
         name: parsed.data.name,
         email: parsed.data.email,
         password: hashedPassword,
-        role: Role.ADMIN,
+        role: "ADMIN",
       },
       select: { id: true, email: true, role: true },
     });

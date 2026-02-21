@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (user.role !== Role.ADMIN) {
+    if (user.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Admin access required." },
         { status: 403 },
