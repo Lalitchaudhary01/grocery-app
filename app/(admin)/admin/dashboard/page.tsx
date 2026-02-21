@@ -455,15 +455,19 @@ export default async function AdminDashboardPage() {
                   {section.rows.length === 0 ? (
                     <p className="text-xs text-neutral-500">No sales data</p>
                   ) : (
-                    section.rows.map((row) => (
-                      <p key={`${section.label}-${row.productId}`} className="text-xs text-neutral-700">
-                        <span className="font-semibold">
-                          {topProductNameById.get(row.productId) || row.productId.slice(0, 8)}
-                        </span>
-                        {" - "}
-                        {row._sum.quantity ?? 0} sold
-                      </p>
-                    ))
+                    section.rows.map((row) => {
+                      const productName = topProductNameById.get(row.productId);
+                      const displayName = productName ? productName : row.productId.slice(0, 8);
+                      const quantitySold = row._sum.quantity ?? 0;
+                      
+                      return (
+                        <p key={`${section.label}-${row.productId}`} className="text-xs text-neutral-700">
+                          <span className="font-semibold">{displayName}</span>
+                          {" - "}
+                          {quantitySold} sold
+                        </p>
+                      );
+                    })
                   )}
                 </div>
               </div>
