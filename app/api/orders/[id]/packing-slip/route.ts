@@ -5,6 +5,14 @@ import { AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { parseOrderPaymentMeta } from "@/lib/order-payment-meta";
 import { prisma } from "@/lib/prisma";
 
+type PackingSlipItem = {
+  quantity: number;
+  price: number;
+  product: {
+    name: string;
+  };
+};
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -70,7 +78,7 @@ export async function GET(
 <tbody>
 ${order.items
   .map(
-    (item) =>
+    (item: PackingSlipItem) =>
       `<tr><td>${escapeHtml(item.product.name)}</td><td>${item.quantity}</td><td>₹${item.price.toFixed(
         2,
       )}</td><td>₹${(item.price * item.quantity).toFixed(2)}</td></tr>`,
@@ -102,4 +110,3 @@ ${order.items
 }
 
 export const runtime = "nodejs";
-
