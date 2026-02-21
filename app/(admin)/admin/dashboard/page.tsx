@@ -7,6 +7,20 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 type SaleOrderStatus = "CONFIRMED" | "SHIPPED" | "DELIVERED";
+type CategoryRow = { id: string; name: string };
+type CategorySalesRow = { quantity: number; price: number; product: { categoryId: string } };
+type LowStockProductRow = { id: string; name: string; stock: number };
+type SimpleOrderRow = { total: number; createdAt: Date };
+type TopSoldRow = { productId: string; _sum: { quantity: number | null } };
+type RecentOrderRow = {
+  id: string;
+  status: string;
+  total: number;
+  createdAt: Date;
+  user: { name: string | null };
+  items: Array<{ id: string }>;
+};
+type CategoryLowStockRow = { categoryId: string };
 
 function startOfToday() {
   const date = new Date();
@@ -201,13 +215,23 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
+  const categorySalesRowsTyped = categorySalesRows as CategorySalesRow[];
+  const allCategoriesTyped = allCategories as CategoryRow[];
+  const lowStockProductsTyped = lowStockProducts as LowStockProductRow[];
+  const last7DaysOrdersTyped = last7DaysOrders as SimpleOrderRow[];
+  const topSoldTodayTyped = topSoldToday as TopSoldRow[];
+  const topSold7DaysTyped = topSold7Days as TopSoldRow[];
+  const topSold30DaysTyped = topSold30Days as TopSoldRow[];
+  const lowStockCategoryProductsTyped = lowStockCategoryProducts as CategoryLowStockRow[];
+  const recentOrdersTyped = recentOrders as RecentOrderRow[];
+
   const todaySales = todaySaleAggregate._sum.total ?? 0;
   const yesterdaySales = yesterdaySaleAggregate._sum.total ?? 0;
   const salesTrendPercent =
     yesterdaySales <= 0 ? (todaySales > 0 ? 100 : 0) : ((todaySales - yesterdaySales) / yesterdaySales) * 100;
 
   const totalRevenueByCategoryId = new Map<string, number>();
-  for (const row of categorySalesRows) {
+  for (const row of categorySalesRowsTyped) {
     const key = row.product.categoryId;
     totalRevenueByCategoryId.set(
       key,
@@ -215,7 +239,7 @@ export default async function AdminDashboardPage() {
     );
   }
 
-  const categoryList = (allCategories ?? []) as Array<{ id: string; name: string }>;
+  const categoryList = allCategoriesTyped;
   const categorySaleRows = categoryList
     .map((category: { id: string; name: string }) => ({
       id: category.id,
@@ -240,7 +264,7 @@ export default async function AdminDashboardPage() {
   for (const day of recentDays) {
     salesByDate.set(day.toDateString(), 0);
   }
-  for (const order of last7DaysOrders) {
+  for (const order of last7DaysOrdersTyped) {
     const key = new Date(order.createdAt).toDateString();
     salesByDate.set(key, (salesByDate.get(key) ?? 0) + order.total);
   }
@@ -256,9 +280,9 @@ export default async function AdminDashboardPage() {
 
   const topProductIds = Array.from(
     new Set([
-      ...topSoldToday.map((item) => item.productId),
-      ...topSold7Days.map((item) => item.productId),
-      ...topSold30Days.map((item) => item.productId),
+      ...topSoldTodayTyped.map((item: TopSoldRow) => item.productId),
+      ...topSold7DaysTyped.map((item: TopSoldRow) => item.productId),
+      ...topSold30DaysTyped.map((item: TopSoldRow) => item.productId),
     ]),
   );
   const topProducts = topProductIds.length
@@ -267,35 +291,42 @@ export default async function AdminDashboardPage() {
         select: { id: true, name: true },
       })
     : [];
-  const topProductNameById = new Map(topProducts.map((product) => [product.id, product.name]));
+  const topProductNameById = new Map(
+    topProducts.map((product: { id: string; name: string }) => [product.id, product.name]),
+  );
 
   const topProductSections = [
-    { label: "Today", rows: topSoldToday },
-    { label: "Last 7 Days", rows: topSold7Days },
-    { label: "Last 30 Days", rows: topSold30Days },
+    { label: "Today", rows: topSoldTodayTyped },
+    { label: "Last 7 Days", rows: topSold7DaysTyped },
+    { label: "Last 30 Days", rows: topSold30DaysTyped },
   ] as const;
 
   const lowStockCountByCategory = new Map<string, number>();
-  for (const product of lowStockCategoryProducts) {
+  for (const product of lowStockCategoryProductsTyped) {
     lowStockCountByCategory.set(
       product.categoryId,
       (lowStockCountByCategory.get(product.categoryId) ?? 0) + 1,
     );
   }
   const categoryLowStock = Array.from(lowStockCountByCategory.entries())
-    .map(([categoryId, count]) => {
-      const category = allCategories.find((item) => item.id === categoryId);
+    .map(([categoryId, count]: [string, number]) => {
+      const category = allCategoriesTyped.find((item: CategoryRow) => item.id === categoryId);
       return {
         categoryId,
         categoryName: parseCategoryName(category?.name ?? "Unknown").label,
         count,
       };
     })
-    .sort((first, second) => second.count - first.count)
+    .sort(
+      (
+        first: { categoryId: string; categoryName: string; count: number },
+        second: { categoryId: string; categoryName: string; count: number },
+      ) => second.count - first.count,
+    )
     .slice(0, 6)
-    .filter((row) => row.count > 0);
+    .filter((row: { categoryId: string; categoryName: string; count: number }) => row.count > 0);
 
-  const pendingAndActiveOrders = recentOrders.filter((order) =>
+  const pendingAndActiveOrders = recentOrdersTyped.filter((order: RecentOrderRow) =>
     ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED"].includes(order.status),
   );
 
@@ -323,7 +354,7 @@ export default async function AdminDashboardPage() {
       label: "Total Products",
       value: String(totalProducts),
       note: `${outOfStockCount} out of stock`,
-      subNote: `Low stock <= 2: ${lowStockProducts.length}`,
+      subNote: `Low stock <= 2: ${lowStockProductsTyped.length}`,
       icon: "📦",
       accent: "bg-blue-600",
     },
@@ -525,11 +556,11 @@ export default async function AdminDashboardPage() {
         )}
       </section>
 
-      {lowStockProducts.length > 0 ? (
+      {lowStockProductsTyped.length > 0 ? (
         <div className="rounded-2xl border-l-4 border-red-500 bg-red-50 px-4 py-3 text-base text-red-600">
           <span className="font-bold">⚠ Low Stock Alert:</span>{" "}
-          {lowStockProducts
-            .map((product) => `${product.name} (${product.stock} left)`)
+          {lowStockProductsTyped
+            .map((product: LowStockProductRow) => `${product.name} (${product.stock} left)`)
             .join(", ")}
         </div>
       ) : (
