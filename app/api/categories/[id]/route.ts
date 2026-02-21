@@ -51,7 +51,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid category payload." }, { status: 400 });
     }
 
-    const category = await prisma.$transaction(async (tx) => {
+    const category = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updated = await tx.category.update({
         where: { id: parsedParams.data.id },
         data: { name: parsedBody.data.name },
@@ -96,7 +96,7 @@ export async function DELETE(
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const category = await tx.category.findUnique({
         where: { id: parsedParams.data.id },
         select: { id: true, name: true, _count: { select: { products: true } } },

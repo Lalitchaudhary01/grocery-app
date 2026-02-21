@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const product = await prisma.$transaction(async (tx) => {
+    const product = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const created = await tx.product.create({
         data: {
           name: parsed.data.name,

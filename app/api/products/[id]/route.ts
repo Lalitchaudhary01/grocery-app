@@ -89,7 +89,7 @@ export async function PATCH(
       );
     }
 
-    const product = await prisma.$transaction(async (tx) => {
+    const product = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.product.findUnique({
         where: { id: parsedParams.data.id },
         select: { id: true, stock: true, description: true },
