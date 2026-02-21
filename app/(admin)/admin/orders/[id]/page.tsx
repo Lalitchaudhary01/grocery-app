@@ -1,6 +1,5 @@
 "use client";
 
-import { OrderStatus } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -8,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { parseOrderPaymentMeta } from "@/lib/order-payment-meta";
+import type { OrderStatus } from "@/lib/order-enums";
 
 type AdminOrderDetail = {
   id: string;

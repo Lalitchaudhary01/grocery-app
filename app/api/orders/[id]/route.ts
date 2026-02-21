@@ -1,10 +1,11 @@
-import { OrderStatus, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME, CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
+import { ORDER_STATUS_VALUES } from "@/lib/order-enums";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -13,7 +14,7 @@ const paramsSchema = z.object({
 });
 
 const updateStatusSchema = z.object({
-  status: z.nativeEnum(OrderStatus).optional(),
+  status: z.enum(ORDER_STATUS_VALUES).optional(),
   paymentStatus: z.enum(["PENDING_VERIFICATION", "VERIFIED", "FAILED"]).optional(),
   cancelReason: z.string().trim().min(5).max(300).optional(),
 }).refine((value) => value.status || value.paymentStatus, {

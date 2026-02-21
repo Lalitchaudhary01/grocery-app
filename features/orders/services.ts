@@ -1,6 +1,5 @@
-import { type OrderStatus } from "@prisma/client";
-
 import { prisma } from "@/lib/prisma";
+import { type OrderStatus } from "@/lib/order-enums";
 import {
   reserveInventoryStock,
   type InventoryOrderItemInput,

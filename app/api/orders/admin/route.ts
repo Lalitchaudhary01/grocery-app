@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OrderStatus } from "@prisma/client";
 
 import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
+import { isOrderStatus, type OrderStatus } from "@/lib/order-enums";
 import { prisma } from "@/lib/prisma";
 
 function ensureAdmin(request: NextRequest): NextResponse | null {
@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
       }>;
     } = {};
 
-    if (status && Object.values(OrderStatus).includes(status as OrderStatus)) {
-      where.status = status as OrderStatus;
+    if (status && isOrderStatus(status)) {
+      where.status = status;
     }
 
     if (from || to) {
