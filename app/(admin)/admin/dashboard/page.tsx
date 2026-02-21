@@ -215,17 +215,26 @@ export default async function AdminDashboardPage() {
     );
   }
 
-  const categorySaleRows = allCategories
+  const categoryList = (allCategories ?? []) as Array<{ id: string; name: string }>;
+  const categorySaleRows = categoryList
     .map((category: { id: string; name: string }) => ({
       id: category.id,
       name: category.name,
       total: totalRevenueByCategoryId.get(category.id) ?? 0,
     }))
-    .filter((category) => category.total > 0)
-    .sort((first, second) => second.total - first.total)
+    .filter((category: { id: string; name: string; total: number }) => category.total > 0)
+    .sort(
+      (
+        first: { id: string; name: string; total: number },
+        second: { id: string; name: string; total: number },
+      ) => second.total - first.total,
+    )
     .slice(0, 4);
 
-  const maxCategorySale = Math.max(1, ...categorySaleRows.map((category) => category.total));
+  const maxCategorySale = Math.max(
+    1,
+    ...categorySaleRows.map((category: { total: number }) => category.total),
+  );
 
   const salesByDate = new Map<string, number>();
   for (const day of recentDays) {
