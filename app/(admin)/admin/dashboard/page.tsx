@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { OrderStatus } from "@prisma/client";
 
 import { StoreToggleCard } from "@/components/admin/StoreToggleCard";
 import { parseCategoryName } from "@/lib/category-name";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+type SaleOrderStatus = "CONFIRMED" | "SHIPPED" | "DELIVERED";
 
 function startOfToday() {
   const date = new Date();
@@ -38,7 +39,7 @@ export default async function AdminDashboardPage() {
   yesterday.setDate(yesterday.getDate() - 1);
   const last30Days = new Date(today);
   last30Days.setDate(last30Days.getDate() - 30);
-  const validSaleStatuses: OrderStatus[] = ["CONFIRMED", "SHIPPED", "DELIVERED"];
+  const validSaleStatuses: SaleOrderStatus[] = ["CONFIRMED", "SHIPPED", "DELIVERED"];
   const recentDays = getRecentDays(7);
 
   const [
