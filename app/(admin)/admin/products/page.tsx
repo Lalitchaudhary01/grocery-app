@@ -234,10 +234,28 @@ export default function AdminProductsPage() {
     if (nextStock === product.stock) return;
     try {
       setError(null);
+      let stockReasonTag: "DAMAGED" | "EXPIRED" | "MANUAL" = "MANUAL";
+      let stockReason = "";
+      if (delta < 0) {
+        const reasonInput = window
+          .prompt("Reason tag likho: DAMAGED / EXPIRED / MANUAL", "MANUAL")
+          ?.trim()
+          .toUpperCase();
+        if (reasonInput === "DAMAGED" || reasonInput === "EXPIRED" || reasonInput === "MANUAL") {
+          stockReasonTag = reasonInput;
+        }
+        stockReason =
+          window.prompt("Optional note (e.g. 2 packets torn)", `${stockReasonTag} stock reduce`)?.trim() ||
+          "";
+      }
       const response = await fetch(`/api/products/${product.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stock: nextStock }),
+        body: JSON.stringify({
+          stock: nextStock,
+          stockReasonTag,
+          stockReason,
+        }),
       });
       const body = (await response.json().catch(() => null)) as
         | { error?: string }

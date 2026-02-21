@@ -100,6 +100,9 @@ export default function AdminOrdersPage() {
   const [status, setStatus] = useState<"" | OrderStatus>("");
   const [date, setDate] = useState("");
   const [rowUpdating, setRowUpdating] = useState<RowUpdating | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<OrderStatus>("CONFIRMED");
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -126,6 +129,7 @@ export default function AdminOrdersPage() {
       }
 
       setOrders(Array.isArray(body?.orders) ? body.orders : []);
+      setSelectedOrderIds([]);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load orders.");
     } finally {
@@ -195,6 +199,49 @@ export default function AdminOrdersPage() {
     void updateOrder(order.id, { status: nextStatus }, "status");
   }
 
+  async function applyBulkStatus() {
+    if (selectedOrderIds.length === 0) {
+      setError("Pehle orders select karo.");
+      return;
+    }
+
+    let cancelReason: string | undefined;
+    if (bulkStatus === "CANCELLED") {
+      const reason = window.prompt("Bulk reject reason (minimum 5 chars):", "Bulk reject by admin");
+      if (!reason || reason.trim().length < 5) {
+        setError("Valid cancel reason required.");
+        return;
+      }
+      cancelReason = reason.trim();
+    }
+
+    try {
+      setBulkUpdating(true);
+      setError(null);
+      for (const orderId of selectedOrderIds) {
+        const response = await fetch(`/api/orders/${orderId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: bulkStatus,
+            cancelReason,
+          }),
+        });
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        if (!response.ok) {
+          throw new Error(body?.error || `Failed to update ${orderId}`);
+        }
+      }
+      await loadOrders();
+    } catch (bulkError) {
+      setError(bulkError instanceof Error ? bulkError.message : "Bulk update failed.");
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
@@ -238,6 +285,30 @@ export default function AdminOrdersPage() {
             </span>
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-neutral-50 p-2">
+          <span className="text-xs font-semibold text-neutral-600">
+            Selected: {selectedOrderIds.length}
+          </span>
+          <select
+            value={bulkStatus}
+            onChange={(event) => setBulkStatus(event.target.value as OrderStatus)}
+            className="rounded-lg border border-neutral-300 px-2 py-1 text-xs font-semibold"
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void applyBulkStatus()}
+            disabled={bulkUpdating || selectedOrderIds.length === 0}
+            className="rounded-lg bg-green-700 px-3 py-1 text-xs font-bold text-white hover:bg-green-800 disabled:bg-green-400"
+          >
+            {bulkUpdating ? "Applying..." : "Apply Bulk Status"}
+          </button>
+        </div>
       </section>
 
       {error ? (
@@ -251,6 +322,19 @@ export default function AdminOrdersPage() {
           <table className="min-w-[1100px] text-sm">
             <thead className="bg-[#eaf1e3] text-left text-xs font-bold uppercase tracking-wide text-neutral-600">
               <tr>
+                <th className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={orders.length > 0 && selectedOrderIds.length === orders.length}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        setSelectedOrderIds(orders.map((order) => order.id));
+                      } else {
+                        setSelectedOrderIds([]);
+                      }
+                    }}
+                  />
+                </th>
                 <th className="px-4 py-3">Order Id</th>
                 <th className="px-4 py-3">Customer</th>
                 <th className="px-4 py-3">Address</th>
@@ -264,13 +348,13 @@ export default function AdminOrdersPage() {
             <tbody className="divide-y divide-neutral-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-neutral-600">
+                  <td colSpan={9} className="px-4 py-8 text-center text-neutral-600">
                     Loading orders...
                   </td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-neutral-600">
+                  <td colSpan={9} className="px-4 py-8 text-center text-neutral-600">
                     Orders nahi mile.
                   </td>
                 </tr>
@@ -280,6 +364,19 @@ export default function AdminOrdersPage() {
                     key={order.id}
                     className={order.status === "CANCELLED" ? "bg-red-50/60" : "bg-white"}
                   >
+                    <td className="px-4 py-4 align-top">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrderIds.includes(order.id)}
+                        onChange={(event) => {
+                          setSelectedOrderIds((prev) =>
+                            event.target.checked
+                              ? Array.from(new Set([...prev, order.id]))
+                              : prev.filter((id) => id !== order.id),
+                          );
+                        }}
+                      />
+                    </td>
                     <td className="px-4 py-4 align-top">
                       <p className="text-xl font-extrabold text-neutral-900">
                         #{order.id.slice(0, 8).toUpperCase()}

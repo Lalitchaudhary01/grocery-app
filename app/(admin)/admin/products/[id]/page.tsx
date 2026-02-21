@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/Badge";
 import { parseProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
 

@@ -11,6 +11,7 @@ import { verifyAuthToken } from "@/features/auth/jwt";
 import { CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getStoreSettings } from "@/lib/store-settings";
 
 const createOrderSchema = z.object({
   deliveryAddress: z.object({
@@ -67,6 +68,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Invalid order payload." },
         { status: 400 },
+      );
+    }
+
+    const storeSettings = await getStoreSettings();
+    if (!storeSettings.isOpen) {
+      return NextResponse.json(
+        {
+          error: storeSettings.message || "Store is currently closed. Please try later.",
+          nextOpenAt: storeSettings.nextOpenAt,
+        },
+        { status: 409 },
       );
     }
 

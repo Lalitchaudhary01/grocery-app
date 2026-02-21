@@ -4,6 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import type { CartLineItem } from "@/components/cart/CartItem";
+import { CART_STORAGE_KEY } from "@/lib/customer-storage";
+
 type PublicOrder = {
   id: string;
   status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
@@ -15,6 +18,8 @@ type PublicOrder = {
   updatedAt: string;
   items: Array<{
     productId: string;
+    quantity: number;
+    price: number;
     product: {
       name: string;
       imageUrl: string | null;
@@ -101,6 +106,35 @@ export default function OrdersPage() {
     () => orders.filter((order) => order.status === "PENDING").length,
     [orders],
   );
+
+  function reorderItems(order: PublicOrder) {
+    try {
+      const raw = localStorage.getItem(CART_STORAGE_KEY);
+      const existing = raw ? (JSON.parse(raw) as CartLineItem[]) : [];
+      const next = [...existing];
+
+      for (const item of order.items) {
+        const found = next.find((entry) => entry.product.id === item.productId);
+        if (found) {
+          found.quantity += item.quantity;
+        } else {
+          next.push({
+            product: {
+              id: item.productId,
+              name: item.product.name,
+              price: item.price,
+              imageUrl: item.product.imageUrl,
+            },
+            quantity: item.quantity,
+          });
+        }
+      }
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event("storage"));
+    } catch {
+      // no-op
+    }
+  }
 
   return (
     <div className="bg-neutral-100 px-4 py-6 sm:px-6">
@@ -210,6 +244,15 @@ export default function OrdersPage() {
                     </Link>
                   ))}
                 </div>
+              </div>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => reorderItems(order)}
+                  className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-800"
+                >
+                  Reorder Same Items
+                </button>
               </div>
             </div>
           ))}

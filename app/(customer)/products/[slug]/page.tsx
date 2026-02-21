@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { parseProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 type Product = {
   id: string;
   name: string;

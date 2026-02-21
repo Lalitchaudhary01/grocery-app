@@ -1,6 +1,11 @@
 import Link from "next/link";
+import { OrderStatus } from "@prisma/client";
 
+import { StoreToggleCard } from "@/components/admin/StoreToggleCard";
+import { parseCategoryName } from "@/lib/category-name";
 import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 function startOfToday() {
   const date = new Date();
@@ -31,7 +36,9 @@ export default async function AdminDashboardPage() {
   const today = startOfToday();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  const validSaleStatuses = ["CONFIRMED", "SHIPPED", "DELIVERED"] as const;
+  const last30Days = new Date(today);
+  last30Days.setDate(last30Days.getDate() - 30);
+  const validSaleStatuses: OrderStatus[] = ["CONFIRMED", "SHIPPED", "DELIVERED"];
   const recentDays = getRecentDays(7);
 
   const [
@@ -48,6 +55,10 @@ export default async function AdminDashboardPage() {
     allCategories,
     lowStockProducts,
     last7DaysOrders,
+    topSoldToday,
+    topSold7Days,
+    topSold30Days,
+    lowStockCategoryProducts,
   ] = await Promise.all([
     prisma.order.aggregate({
       where: {
@@ -147,6 +158,46 @@ export default async function AdminDashboardPage() {
         createdAt: true,
       },
     }),
+    prisma.orderItem.groupBy({
+      by: ["productId"],
+      where: {
+        order: {
+          createdAt: { gte: today },
+          status: { in: validSaleStatuses },
+        },
+      },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: "desc" } },
+      take: 5,
+    }),
+    prisma.orderItem.groupBy({
+      by: ["productId"],
+      where: {
+        order: {
+          createdAt: { gte: recentDays[0] },
+          status: { in: validSaleStatuses },
+        },
+      },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: "desc" } },
+      take: 5,
+    }),
+    prisma.orderItem.groupBy({
+      by: ["productId"],
+      where: {
+        order: {
+          createdAt: { gte: last30Days },
+          status: { in: validSaleStatuses },
+        },
+      },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: "desc" } },
+      take: 5,
+    }),
+    prisma.product.findMany({
+      where: { stock: { lte: 2 } },
+      select: { categoryId: true },
+    }),
   ]);
 
   const todaySales = todaySaleAggregate._sum.total ?? 0;
@@ -192,6 +243,47 @@ export default async function AdminDashboardPage() {
     };
   });
   const maxDailySale = Math.max(1, ...dailySalesBars.map((bar) => bar.value));
+
+  const topProductIds = Array.from(
+    new Set([
+      ...topSoldToday.map((item) => item.productId),
+      ...topSold7Days.map((item) => item.productId),
+      ...topSold30Days.map((item) => item.productId),
+    ]),
+  );
+  const topProducts = topProductIds.length
+    ? await prisma.product.findMany({
+        where: { id: { in: topProductIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const topProductNameById = new Map(topProducts.map((product) => [product.id, product.name]));
+
+  const topProductSections = [
+    { label: "Today", rows: topSoldToday },
+    { label: "Last 7 Days", rows: topSold7Days },
+    { label: "Last 30 Days", rows: topSold30Days },
+  ] as const;
+
+  const lowStockCountByCategory = new Map<string, number>();
+  for (const product of lowStockCategoryProducts) {
+    lowStockCountByCategory.set(
+      product.categoryId,
+      (lowStockCountByCategory.get(product.categoryId) ?? 0) + 1,
+    );
+  }
+  const categoryLowStock = Array.from(lowStockCountByCategory.entries())
+    .map(([categoryId, count]) => {
+      const category = allCategories.find((item) => item.id === categoryId);
+      return {
+        categoryId,
+        categoryName: parseCategoryName(category?.name ?? "Unknown").label,
+        count,
+      };
+    })
+    .sort((first, second) => second.count - first.count)
+    .slice(0, 6)
+    .filter((row) => row.count > 0);
 
   const pendingAndActiveOrders = recentOrders.filter((order) =>
     ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED"].includes(order.status),
@@ -309,6 +401,57 @@ export default async function AdminDashboardPage() {
           </div>
         </section>
       </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="text-2xl font-extrabold text-neutral-900">Most Sold Products</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {topProductSections.map((section) => (
+              <div key={section.label} className="rounded-xl border border-neutral-200 p-3">
+                <p className="text-sm font-bold text-neutral-700">{section.label}</p>
+                <div className="mt-2 space-y-1.5">
+                  {section.rows.length === 0 ? (
+                    <p className="text-xs text-neutral-500">No sales data</p>
+                  ) : (
+                    section.rows.map((row) => (
+                      <p key={`${section.label}-${row.productId}`} className="text-xs text-neutral-700">
+                        <span className="font-semibold">
+                          {topProductNameById.get(row.productId) || row.productId.slice(0, 8)}
+                        </span>
+                        {" - "}
+                        {row._sum.quantity ?? 0} sold
+                      </p>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <h2 className="text-2xl font-extrabold text-neutral-900">Category Low Stock Alerts</h2>
+          <div className="mt-4 space-y-2">
+            {categoryLowStock.length === 0 ? (
+              <p className="text-sm text-neutral-600">No category low-stock cluster found.</p>
+            ) : (
+              categoryLowStock.map((row) => (
+                <div
+                  key={row.categoryId}
+                  className="flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 text-sm"
+                >
+                  <span className="font-semibold text-red-700">{row.categoryName}</span>
+                  <span className="rounded-full bg-red-100 px-2 py-0.5 font-bold text-red-700">
+                    {row.count} low-stock products
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+
+      <StoreToggleCard />
 
       <section className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-5 py-4">

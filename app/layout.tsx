@@ -3,10 +3,16 @@ import "./globals.css";
 
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
+import { StoreStatusBanner } from "@/components/layout/StoreStatusBanner";
 
 export const metadata: Metadata = {
   title: "Vivek Chaudhary Mohanpur Wale",
   description: "3 KM ke andar Home Delivery",
+  icons: {
+    icon: "/logo-mark.svg",
+    shortcut: "/logo-mark.svg",
+    apple: "/logo-mark.svg",
+  },
 };
 
 export default function RootLayout({
@@ -19,6 +25,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-neutral-100 text-neutral-900">
         <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col bg-white shadow-sm">
           <Navbar />
+          <StoreStatusBanner />
           <main className="flex-1">{children}</main>
           <Footer />
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -63,14 +64,24 @@ export function Navbar() {
       <div className="mx-auto flex w-full items-center justify-between px-4 py-3 sm:px-6">
         <div>
           <Link href="/" className="flex items-center gap-2">
-          <p className="text-sm font-bold leading-tight text-white sm:text-base">
-            Vivek Chaudhary
-            <br />
-            Mohanpur Wale
-          </p>
-          <p className="text-[11px] text-green-100 sm:text-xs">
-            3 KM ke andar Home Delivery
-          </p>
+            <Image
+              src="/logo-mark.svg"
+              alt="Vivek Chaudhary Mohanpur Wale"
+              width={44}
+              height={44}
+              className="h-10 w-10 rounded-md bg-white/90 p-1"
+              priority
+            />
+            <div>
+              <p className="text-sm font-bold leading-tight text-white sm:text-base">
+                Vivek Chaudhary
+                <br />
+                Mohanpur Wale
+              </p>
+              <p className="text-[11px] text-green-100 sm:text-xs">
+                3 KM ke andar Home Delivery
+              </p>
+            </div>
           </Link>
         </div>
 

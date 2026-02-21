@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { parseCategoryName } from "@/lib/category-name";
@@ -86,8 +85,6 @@ function getBrandFromName(name: string): string {
 }
 
 export default function ProductsPage() {
-  const searchParams = useSearchParams();
-
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,11 +101,12 @@ export default function ProductsPage() {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
     const qFromQuery = searchParams.get("q") ?? "";
     const categoryFromQuery = searchParams.get("categoryId") ?? "";
     setQuery(qFromQuery);
     setCategoryId(categoryFromQuery || "all");
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     async function loadData() {

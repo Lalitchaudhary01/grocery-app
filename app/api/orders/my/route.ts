@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
         items: {
           select: {
             productId: true,
+            quantity: true,
+            price: true,
             product: {
               select: {
                 name: true,

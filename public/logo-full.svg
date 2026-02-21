@@ -1,0 +1,23 @@
+<svg width="900" height="300" viewBox="0 0 900 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="900" height="300" fill="transparent"/>
+  <g transform="translate(20,18)">
+    <path d="M35 58H88C103 58 116 68 121 82L151 183C154 191 162 197 171 197H291" stroke="#2F8F46" stroke-width="18" stroke-linecap="round"/>
+    <path d="M140 188L312 176C320 175 327 169 330 161L363 65" stroke="#2F8F46" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="190" cy="232" r="18" fill="#2F8F46"/>
+    <circle cx="266" cy="232" r="18" fill="#2F8F46"/>
+    <path d="M205 40C217 22 244 22 256 40L278 81C296 113 273 152 236 152C199 152 176 113 194 81L205 40Z" fill="#2F8F46"/>
+    <circle cx="236" cy="60" r="9" fill="#EDF8EF"/>
+    <ellipse cx="212" cy="74" rx="14" ry="8" fill="#EDF8EF"/>
+    <ellipse cx="260" cy="74" rx="14" ry="8" fill="#EDF8EF"/>
+    <ellipse cx="236" cy="78" rx="15" ry="8" fill="#EDF8EF"/>
+    <ellipse cx="223" cy="96" rx="10" ry="6" fill="#EDF8EF"/>
+    <ellipse cx="249" cy="96" rx="10" ry="6" fill="#EDF8EF"/>
+    <ellipse cx="236" cy="102" rx="11" ry="6" fill="#EDF8EF"/>
+  </g>
+  <text x="425" y="145" fill="#2F8F46" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" letter-spacing="2">
+    VIVEK CHAUDHARY
+  </text>
+  <text x="504" y="210" fill="#D9A62F" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800" letter-spacing="3">
+    MOHANPUR WALE
+  </text>
+</svg>

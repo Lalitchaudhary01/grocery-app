@@ -25,6 +25,8 @@ const updateProductSchema = z
     variantRank: z.coerce.number().int().min(0).max(9999).optional().nullable(),
     discountPercent: z.coerce.number().min(0).max(90).optional().nullable(),
     isActive: z.coerce.boolean().optional(),
+    stockReasonTag: z.enum(["DAMAGED", "EXPIRED", "MANUAL"]).optional(),
+    stockReason: z.string().trim().max(200).optional().nullable(),
     imageUrl: z.string().url().max(1000).optional().nullable(),
     categoryId: z.string().uuid().optional(),
   })
@@ -161,14 +163,25 @@ export async function PATCH(
       });
 
       if (typeof parsedBody.data.stock === "number" && parsedBody.data.stock !== existing.stock) {
+        const delta = parsedBody.data.stock - existing.stock;
+        const reasonTag =
+          parsedBody.data.stockReasonTag ?? (delta < 0 ? "MANUAL" : "MANUAL");
+        const reasonBase =
+          parsedBody.data.stockReason?.trim() ||
+          (reasonTag === "DAMAGED"
+            ? "Stock reduced due to damaged units."
+            : reasonTag === "EXPIRED"
+              ? "Stock reduced due to expired units."
+              : "Admin updated product stock.");
+
         await tx.stockChangeHistory.create({
           data: {
             productId: existing.id,
             changeType: "ADMIN_ADJUSTMENT",
-            quantityDelta: parsedBody.data.stock - existing.stock,
+            quantityDelta: delta,
             previousStock: existing.stock,
             newStock: parsedBody.data.stock,
-            reason: "Admin updated product stock.",
+            reason: `[${reasonTag}] ${reasonBase}`,
             changedByUserId: auth.adminId,
           },
         });

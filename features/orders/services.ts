@@ -1,3 +1,5 @@
+import { type OrderStatus } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import {
   reserveInventoryStock,
@@ -22,7 +24,7 @@ export interface CreateOrderInput {
 export interface CreatedOrderResult {
   order: {
     id: string;
-    status: string;
+    status: OrderStatus;
     subtotalAmount: number;
     deliveryCharge: number;
     totalAmount: number;
@@ -108,7 +110,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
 
     let order: {
       id: string;
-      status: string;
+      status: OrderStatus;
       createdAt: Date;
     };
 

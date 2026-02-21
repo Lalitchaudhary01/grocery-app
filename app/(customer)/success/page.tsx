@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -51,15 +50,20 @@ function formatINR(value: number): string {
 }
 
 export default function SuccessPage() {
-  const searchParams = useSearchParams();
-  const orderId = searchParams.get("orderId");
-
+  const [orderId, setOrderId] = useState<string | null>(null);
   const [order, setOrder] = useState<PublicOrder | null>(null);
-  const [loading, setLoading] = useState(Boolean(orderId));
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const lastStatusRef = useRef<PublicOrder["status"] | null>(null);
   const hasLoadedOnceRef = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("orderId");
+    setOrderId(id);
+    setLoading(Boolean(id));
+  }, []);
 
   useEffect(() => {
     if (!notification) return;

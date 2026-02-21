@@ -1,7 +1,16 @@
+import Image from "next/image";
+
 export function Footer() {
   return (
     <footer className="border-t border-neutral-200 bg-white">
       <div className="px-4 py-5 sm:px-6">
+        <Image
+          src="/logo-full.svg"
+          alt="Vivek Chaudhary Mohanpur Wale"
+          width={280}
+          height={92}
+          className="h-auto w-52 sm:w-64"
+        />
         <p className="text-sm font-semibold text-neutral-900">
           Vivek Chaudhary Mohanpur Wale
         </p>
