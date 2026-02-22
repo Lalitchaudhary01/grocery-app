@@ -88,8 +88,9 @@ export async function reserveInventoryStock(
     select: { id: true, name: true, price: true, stock: true },
   });
 
-  const productById = new Map(
-    products.map((product: (typeof products)[number]) => [product.id, product]),
+  type ProductRow = { id: string; name: string; price: number; stock: number };
+  const productById = new Map<string, ProductRow>(
+    products.map((p) => [p.id, p as ProductRow]),
   );
   const missingProductIds = productIds.filter((id) => !productById.has(id));
   if (missingProductIds.length > 0) {
