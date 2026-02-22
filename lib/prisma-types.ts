@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
 
 /**
  * Where clause for product queries - defined explicitly to avoid Prisma namespace
@@ -14,7 +14,11 @@ export type ProductWhereInput = {
   stock?: { gt: number } | { lte: number };
 };
 
-/** Inferred from prisma.$transaction - avoids Prisma.TransactionClient on Vercel */
-export type TransactionClient = Parameters<
-  Parameters<typeof prisma.$transaction>[0]
->[0];
+/**
+ * Transaction client - Omit of PrismaClient (same as Prisma.TransactionClient).
+ * Built from PrismaClient to avoid Prisma namespace types on Vercel.
+ */
+export type TransactionClient = Omit<
+  PrismaClient,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
