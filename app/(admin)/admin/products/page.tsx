@@ -337,7 +337,7 @@ export default function AdminProductsPage() {
               <option value="">Sab Categories</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.name}
+                  {parseCategoryName(category.name).label}
                 </option>
               ))}
             </select>
@@ -402,7 +402,10 @@ export default function AdminProductsPage() {
                             <div>
                               <p className="text-lg font-bold text-neutral-900">{product.name}</p>
                               <p className="text-sm text-neutral-500">
-                                {product.unit || product.category?.name || "-"}
+                                {product.unit ||
+                                  (product.category
+                                    ? parseCategoryName(product.category.name).label
+                                    : "-")}
                               </p>
                             </div>
                           </div>
