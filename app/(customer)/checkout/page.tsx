@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
@@ -37,7 +38,8 @@ type CreateOrderResponse = {
   error?: string;
 };
 
-const SHOP_UPI_ID = "8445646300@ybl";
+const SHOP_UPI_ID = "8923541428@axl";
+const SHOP_UPI_NAME = "Mrs Aneeta";
 type PaymentMethod = "UPI_QR" | "COD";
 
 type DeliveryAddressForm = {
@@ -168,6 +170,16 @@ export default function CheckoutPage() {
     [items],
   );
   const pricing = useMemo(() => calculateOrderPriceBreakdown(subtotal), [subtotal]);
+  const upiIntentUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      pa: SHOP_UPI_ID,
+      pn: SHOP_UPI_NAME,
+      am: pricing.total.toFixed(2),
+      cu: "INR",
+      tn: "Grocery order payment",
+    });
+    return `upi://pay?${params.toString()}`;
+  }, [pricing.total]);
 
   function validateAddress(): {
     street: string;
@@ -502,10 +514,31 @@ export default function CheckoutPage() {
                 UPI ID: <span className="font-bold text-green-800">{SHOP_UPI_ID}</span>
               </p>
               <p className="text-sm text-neutral-700">
+                Name: <span className="font-bold text-green-800">{SHOP_UPI_NAME}</span>
+              </p>
+              <p className="text-sm text-neutral-700">
                 Amount to pay: <span className="font-bold text-green-800">{formatINR(pricing.total)}</span>
               </p>
-              <div className="rounded-lg border border-dashed border-green-400 bg-white p-3 text-center text-sm text-neutral-600">
-                QR image abhi add karni hai. फिलहाल UPI ID pe payment karein.
+              <a
+                href={upiIntentUrl}
+                className="inline-flex w-full items-center justify-center rounded-lg border border-green-700 bg-white px-3 py-2 text-sm font-bold text-green-800 hover:bg-green-100"
+              >
+                Open UPI App
+              </a>
+              <div className="rounded-lg border border-green-200 bg-white p-3">
+                <p className="mb-2 text-center text-xs font-semibold text-neutral-600">
+                  Scan QR to pay
+                </p>
+                <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                  <Image
+                    src="/phonepe-qr.jpeg"
+                    alt="PhonePe QR Code"
+                    width={560}
+                    height={1120}
+                    className="h-auto w-full object-contain"
+                    priority
+                  />
+                </div>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
