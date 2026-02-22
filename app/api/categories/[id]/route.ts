@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -6,6 +5,7 @@ import { verifyAuthToken } from "@/features/auth/jwt";
 import { AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { type TransactionClient } from "@/lib/prisma-types";
 import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 
 const paramsSchema = z.object({
@@ -52,7 +52,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid category payload." }, { status: 400 });
     }
 
-    const category = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const category = await prisma.$transaction(async (tx: TransactionClient) => {
       const updated = await tx.category.update({
         where: { id: parsedParams.data.id },
         data: { name: parsedBody.data.name },
@@ -97,7 +97,7 @@ export async function DELETE(
   }
 
   try {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       const category = await tx.category.findUnique({
         where: { id: parsedParams.data.id },
         select: { id: true, name: true, _count: { select: { products: true } } },

@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -8,6 +7,7 @@ import { badRequest, readJsonBody } from "@/lib/http";
 import { normalizeProductImageUrl } from "@/lib/image";
 import { parseProductDescription, encodeProductDescription } from "@/lib/product-meta";
 import { prisma } from "@/lib/prisma";
+import { type ProductWhereInput, type TransactionClient } from "@/lib/prisma-types";
 import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 
 const createProductSchema = z.object({
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get("categoryId")?.trim() ?? "";
     const stock = searchParams.get("stock")?.trim() ?? "";
 
-    const where: Prisma.ProductWhereInput = {};
+    const where: ProductWhereInput = {};
     if (q) {
       where.OR = [
         { name: { contains: q, mode: "insensitive" } },
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const product = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const product = await prisma.$transaction(async (tx: TransactionClient) => {
       const created = await tx.product.create({
         data: {
           name: parsed.data.name,

@@ -1,6 +1,5 @@
-import { type Prisma } from "@prisma/client";
-
 import { prisma } from "@/lib/prisma";
+import { type TransactionClient } from "@/lib/prisma-types";
 import { type OrderStatus } from "@/lib/order-enums";
 import {
   reserveInventoryStock,
@@ -54,7 +53,7 @@ function hasUnknownPaymentStatusField(error: unknown): boolean {
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<CreatedOrderResult> {
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  return prisma.$transaction(async (tx: TransactionClient) => {
     const customer = await tx.user.findUnique({
       where: { id: input.userId },
       select: {

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { type TransactionClient } from "@/lib/prisma-types";
 
 export interface InventoryOrderItemInput {
   productId: string;
@@ -77,7 +77,7 @@ export function normalizeInventoryItems(
 }
 
 export async function reserveInventoryStock(
-  tx: Prisma.TransactionClient,
+  tx: TransactionClient,
   items: InventoryOrderItemInput[],
 ): Promise<ReservedInventoryItem[]> {
   const normalizedItems = normalizeInventoryItems(items);

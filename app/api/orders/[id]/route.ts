@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -7,6 +6,7 @@ import { AUTH_COOKIE_NAME, CUSTOMER_AUTH_COOKIE_NAME } from "@/lib/cookies";
 import { badRequest, readJsonBody } from "@/lib/http";
 import { ORDER_STATUS_VALUES } from "@/lib/order-enums";
 import { prisma } from "@/lib/prisma";
+import { type TransactionClient } from "@/lib/prisma-types";
 import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -84,7 +84,7 @@ export async function PATCH(
       );
     }
 
-    const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const order = await prisma.$transaction(async (tx: TransactionClient) => {
       const existing = await tx.order.findUnique({
         where: { id: parsedParams.data.id },
         select: {
