@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const ordersWithBreakdown = orders.map((order) => {
+    const ordersWithBreakdown = orders.map((order: (typeof orders)[number]) => {
       const breakdown = parseOrderPaymentMeta(order.paymentNote);
       return {
         ...order,
