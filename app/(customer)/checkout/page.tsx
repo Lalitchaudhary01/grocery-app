@@ -174,12 +174,18 @@ export default function CheckoutPage() {
     const params = new URLSearchParams({
       pa: SHOP_UPI_ID,
       pn: SHOP_UPI_NAME,
-      am: pricing.total.toFixed(2),
-      cu: "INR",
-      tn: "Grocery order payment",
     });
     return `upi://pay?${params.toString()}`;
-  }, [pricing.total]);
+  }, []);
+
+  async function copyUpiId() {
+    try {
+      await navigator.clipboard.writeText(SHOP_UPI_ID);
+      showSuccessToast("UPI ID copied.");
+    } catch {
+      showErrorToast("Copy failed. Please copy manually.");
+    }
+  }
 
   function validateAddress(): {
     street: string;
@@ -519,12 +525,25 @@ export default function CheckoutPage() {
               <p className="text-sm text-neutral-700">
                 Amount to pay: <span className="font-bold text-green-800">{formatINR(pricing.total)}</span>
               </p>
-              <a
-                href={upiIntentUrl}
-                className="inline-flex w-full items-center justify-center rounded-lg border border-green-700 bg-white px-3 py-2 text-sm font-bold text-green-800 hover:bg-green-100"
-              >
-                Open UPI App
-              </a>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <a
+                  href={upiIntentUrl}
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-green-700 bg-white px-3 py-2 text-sm font-bold text-green-800 hover:bg-green-100"
+                >
+                  Open UPI App
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void copyUpiId()}
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-bold text-neutral-800 hover:bg-neutral-100"
+                >
+                  Copy UPI ID
+                </button>
+              </div>
+              <p className="text-xs text-neutral-600">
+                UPI app me amount manually enter karein:{" "}
+                <span className="font-semibold text-green-800">{formatINR(pricing.total)}</span>
+              </p>
               <div className="rounded-lg border border-green-200 bg-white p-3">
                 <p className="mb-2 text-center text-xs font-semibold text-neutral-600">
                   Scan QR to pay
