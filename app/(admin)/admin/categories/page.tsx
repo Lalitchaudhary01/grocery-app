@@ -25,6 +25,11 @@ type CategoriesResponse = {
   error?: string;
 };
 
+type UploadImageResponse = {
+  url?: string;
+  error?: string;
+};
+
 const EMPTY_FORM: CategoryForm = {
   name: "",
   imageUrl: "",
@@ -37,6 +42,7 @@ export default function AdminCategoriesPage() {
   const [form, setForm] = useState<CategoryForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +160,36 @@ export default function AdminCategoriesPage() {
       showErrorToast(message);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function uploadCategoryImage(file: File) {
+    try {
+      setUploadingImage(true);
+      setError(null);
+
+      const body = new FormData();
+      body.append("file", file);
+      body.append("folder", "grocery-app/categories");
+
+      const response = await fetch("/api/uploads/image", {
+        method: "POST",
+        body,
+      });
+      const payload = (await response.json().catch(() => null)) as UploadImageResponse | null;
+      if (!response.ok || !payload?.url) {
+        throw new Error(payload?.error || "Image upload failed.");
+      }
+
+      setForm((previous) => ({ ...previous, imageUrl: payload.url ?? "" }));
+      showSuccessToast("Category image uploaded.");
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error ? uploadError.message : "Image upload failed.";
+      setError(message);
+      showErrorToast(message);
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -277,20 +313,42 @@ export default function AdminCategoriesPage() {
 
             <div>
               <label className="mb-1 block text-sm font-semibold text-neutral-700">
-                Image URL
+                Category Image
               </label>
               <input
-                value={form.imageUrl}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, imageUrl: event.target.value }))
-                }
-                placeholder="https://..."
-                disabled={saving}
-                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+                type="file"
+                accept="image/*"
+                disabled={saving || uploadingImage}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void uploadCategoryImage(file);
+                  event.currentTarget.value = "";
+                }}
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-green-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-green-800 focus:border-green-600 focus:outline-none"
               />
               <p className="mt-1 text-xs text-neutral-500">
-                Category card ke liye image link dalo (optional).
+                {uploadingImage
+                  ? "Uploading image..."
+                  : "Image direct Cloudinary pe upload hogi."}
               </p>
+              {form.imageUrl ? (
+                <div className="mt-2 flex items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.imageUrl}
+                    alt="Category Preview"
+                    className="h-12 w-12 rounded-lg border border-neutral-200 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setForm((previous) => ({ ...previous, imageUrl: "" }))}
+                    className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div>

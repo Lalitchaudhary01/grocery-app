@@ -13,7 +13,8 @@ const paramsSchema = z.object({
 });
 
 const updateCategorySchema = z.object({
-  name: z.string().trim().min(2).max(100),
+  // Category name now stores optional image metadata prefix: [[img:URL]] Label
+  name: z.string().trim().min(2).max(600),
 });
 
 function ensureAdmin(request: NextRequest): { adminId: string } | { error: NextResponse } {

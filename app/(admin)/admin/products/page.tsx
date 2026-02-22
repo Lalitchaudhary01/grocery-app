@@ -38,6 +38,11 @@ type ProductForm = {
   categoryId: string;
 };
 
+type UploadImageResponse = {
+  url?: string;
+  error?: string;
+};
+
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
 
@@ -72,6 +77,7 @@ export default function AdminProductsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -273,6 +279,36 @@ export default function AdminProductsPage() {
         updateError instanceof Error ? updateError.message : "Failed to update stock.";
       setError(message);
       showErrorToast(message);
+    }
+  }
+
+  async function uploadProductImage(file: File) {
+    try {
+      setUploadingImage(true);
+      setError(null);
+
+      const body = new FormData();
+      body.append("file", file);
+      body.append("folder", "grocery-app/products");
+
+      const response = await fetch("/api/uploads/image", {
+        method: "POST",
+        body,
+      });
+      const payload = (await response.json().catch(() => null)) as UploadImageResponse | null;
+      if (!response.ok || !payload?.url) {
+        throw new Error(payload?.error || "Image upload failed.");
+      }
+
+      setForm((previous) => ({ ...previous, imageUrl: payload.url ?? "" }));
+      showSuccessToast("Product image uploaded.");
+    } catch (uploadError) {
+      const message =
+        uploadError instanceof Error ? uploadError.message : "Image upload failed.";
+      setError(message);
+      showErrorToast(message);
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -620,16 +656,44 @@ export default function AdminProductsPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-neutral-700">Image URL</label>
+              <label className="mb-1 block text-sm font-semibold text-neutral-700">Product Image</label>
               <input
-                value={form.imageUrl}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, imageUrl: event.target.value }))
-                }
-                placeholder="https://..."
-                disabled={saving}
-                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
+                type="file"
+                accept="image/*"
+                disabled={saving || uploadingImage}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void uploadProductImage(file);
+                  event.currentTarget.value = "";
+                }}
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-green-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-green-800 focus:border-green-600 focus:outline-none"
               />
+              <p className="mt-1 text-xs text-neutral-500">
+                {uploadingImage
+                  ? "Uploading image..."
+                  : "Image direct Cloudinary pe upload hogi."}
+              </p>
+              {form.imageUrl ? (
+                <div className="mt-2 flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-2">
+                  <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-white">
+                    <Image
+                      src={form.imageUrl}
+                      alt="Preview"
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm((previous) => ({ ...previous, imageUrl: "" }))}
+                    className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="flex items-center gap-3">

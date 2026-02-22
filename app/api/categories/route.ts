@@ -8,7 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { hasPrismaErrorCode } from "@/lib/prisma-errors";
 
 const createCategorySchema = z.object({
-  name: z.string().trim().min(2).max(100),
+  // Category name now stores optional image metadata prefix: [[img:URL]] Label
+  name: z.string().trim().min(2).max(600),
 });
 
 export async function GET() {
