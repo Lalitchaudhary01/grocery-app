@@ -89,6 +89,7 @@ function paymentPillClass(status: PaymentStatus) {
 
 function methodLabel(method: string | null) {
   if (!method) return "UPI";
+  if (method.toUpperCase() === "COD") return "COD";
   if (method.toUpperCase().includes("UPI")) return "UPI";
   return method;
 }
@@ -395,7 +396,8 @@ export default function AdminOrdersPage() {
                     onChange={(event) => handleStatusChange(order, event.target.value as OrderStatus)}
                     disabled={
                       rowUpdating?.id === order.id ||
-                      (order.paymentStatus !== "VERIFIED" &&
+                      (order.paymentMethod !== "COD" &&
+                        order.paymentStatus !== "VERIFIED" &&
                         order.status !== "PENDING" &&
                         order.status !== "CANCELLED")
                     }
@@ -410,7 +412,7 @@ export default function AdminOrdersPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {order.paymentStatus !== "VERIFIED" ? (
+                  {order.paymentMethod !== "COD" && order.paymentStatus !== "VERIFIED" ? (
                     <button
                       type="button"
                       onClick={() =>
@@ -539,7 +541,7 @@ export default function AdminOrdersPage() {
                               ? "Failed"
                               : "Pending Verify"}
                         </span>
-                        {order.paymentStatus !== "VERIFIED" ? (
+                        {order.paymentMethod !== "COD" && order.paymentStatus !== "VERIFIED" ? (
                           <button
                             type="button"
                             onClick={() =>
@@ -577,7 +579,8 @@ export default function AdminOrdersPage() {
                           }
                           disabled={
                             rowUpdating?.id === order.id ||
-                            (order.paymentStatus !== "VERIFIED" &&
+                            (order.paymentMethod !== "COD" &&
+                              order.paymentStatus !== "VERIFIED" &&
                               order.status !== "PENDING" &&
                               order.status !== "CANCELLED")
                           }

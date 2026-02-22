@@ -90,6 +90,7 @@ export async function PATCH(
         select: {
           id: true,
           paymentStatus: true,
+          paymentMethod: true,
         },
       });
 
@@ -100,7 +101,8 @@ export async function PATCH(
       if (
         parsedBody.data.status &&
         ["CONFIRMED", "SHIPPED", "DELIVERED"].includes(parsedBody.data.status) &&
-        existing.paymentStatus !== "VERIFIED"
+        existing.paymentStatus !== "VERIFIED" &&
+        existing.paymentMethod !== "COD"
       ) {
         throw new Error("Verify payment first before processing order.");
       }

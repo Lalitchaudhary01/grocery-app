@@ -38,6 +38,7 @@ type CreateOrderResponse = {
 };
 
 const SHOP_UPI_ID = "8445646300@ybl";
+type PaymentMethod = "UPI_QR" | "COD";
 
 type DeliveryAddressForm = {
   street: string;
@@ -90,6 +91,7 @@ export default function CheckoutPage() {
   const [paymentStep, setPaymentStep] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI_QR");
   const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
 
   useEffect(() => {
@@ -213,8 +215,13 @@ export default function CheckoutPage() {
     const valid = validateAddress();
     if (!valid) return;
     localStorage.setItem(DELIVERY_ADDRESS_STORAGE_KEY, JSON.stringify(valid));
-    setPaymentStep(true);
-    showInfoToast("Address saved. Proceed to payment.");
+    if (paymentMethod === "UPI_QR") {
+      setPaymentStep(true);
+      showInfoToast("Address saved. Proceed to UPI payment.");
+      return;
+    }
+    setPaymentStep(false);
+    void submitOrderAfterPayment();
   }
 
   async function submitOrderAfterPayment() {
@@ -241,6 +248,7 @@ export default function CheckoutPage() {
             productId: item.product.id,
             quantity: item.quantity,
           })),
+          paymentMethod,
         }),
       });
 
@@ -399,6 +407,46 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-neutral-600">Payment Method</label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${
+                paymentMethod === "UPI_QR"
+                  ? "border-green-600 bg-green-50 text-green-800"
+                  : "border-neutral-300 bg-white text-neutral-700"
+              }`}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="UPI_QR"
+                  checked={paymentMethod === "UPI_QR"}
+                  onChange={() => {
+                    setPaymentMethod("UPI_QR");
+                    setPaymentStep(false);
+                  }}
+                />
+                UPI QR Payment
+              </label>
+              <label className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${
+                paymentMethod === "COD"
+                  ? "border-green-600 bg-green-50 text-green-800"
+                  : "border-neutral-300 bg-white text-neutral-700"
+              }`}>
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="COD"
+                  checked={paymentMethod === "COD"}
+                  onChange={() => {
+                    setPaymentMethod("COD");
+                    setPaymentStep(false);
+                  }}
+                />
+                Cash on Delivery (COD)
+              </label>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold text-neutral-600">Pincode</label>
@@ -445,7 +493,7 @@ export default function CheckoutPage() {
               className="w-full"
               disabled={loading || submitting || items.length === 0}
             >
-              Proceed to Payment
+              {paymentMethod === "UPI_QR" ? "Proceed to Payment" : "Place COD Order"}
             </Button>
           ) : (
             <div className="space-y-3 rounded-lg border border-green-200 bg-green-50 p-3">

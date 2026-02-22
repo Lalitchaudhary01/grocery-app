@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         status: true,
+        paymentMethod: true,
         total: true,
         paymentNote: true,
         createdAt: true,

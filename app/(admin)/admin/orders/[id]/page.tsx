@@ -300,6 +300,12 @@ export default function AdminOrderDetailPage() {
                   {paymentLabel(order.paymentStatus || "PENDING_VERIFICATION")}
                 </Badge>
               </p>
+              <p className="text-neutral-700 sm:col-span-2">
+                Payment Method:{" "}
+                <span className="font-semibold text-neutral-900">
+                  {order.paymentMethod === "COD" ? "Cash on Delivery (COD)" : "UPI QR"}
+                </span>
+              </p>
             </div>
 
             <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
@@ -311,29 +317,39 @@ export default function AdminOrderDetailPage() {
               >
                 Print Packing Slip
               </a>
-              <button
-                type="button"
-                onClick={() => void updatePaymentStatus("VERIFIED")}
-                disabled={submitting !== null || order.paymentStatus === "VERIFIED"}
-                className="rounded-md border border-green-200 bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700 hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting === "payment:VERIFIED" ? "Saving..." : "Payment Received"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void updatePaymentStatus("FAILED")}
-                disabled={submitting !== null || order.paymentStatus === "FAILED"}
-                className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting === "payment:FAILED" ? "Saving..." : "Not Received"}
-              </button>
+              {order.paymentMethod !== "COD" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void updatePaymentStatus("VERIFIED")}
+                    disabled={submitting !== null || order.paymentStatus === "VERIFIED"}
+                    className="rounded-md border border-green-200 bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700 hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitting === "payment:VERIFIED" ? "Saving..." : "Payment Received"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void updatePaymentStatus("FAILED")}
+                    disabled={submitting !== null || order.paymentStatus === "FAILED"}
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitting === "payment:FAILED" ? "Saving..." : "Not Received"}
+                  </button>
+                </>
+              ) : null}
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => void updateStatus("CONFIRMED")}
-                disabled={submitting !== null || order.status === "CONFIRMED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
+                disabled={
+                  submitting !== null ||
+                  order.status === "CONFIRMED" ||
+                  (order.paymentMethod !== "COD" &&
+                    order.paymentStatus !== undefined &&
+                    order.paymentStatus !== "VERIFIED")
+                }
                 className="rounded-md bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "CONFIRMED" ? "Accepting..." : "Accept"}
@@ -341,7 +357,14 @@ export default function AdminOrderDetailPage() {
               <button
                 type="button"
                 onClick={() => void updateStatus("SHIPPED")}
-                disabled={submitting !== null || order.status === "SHIPPED" || order.status === "CANCELLED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
+                disabled={
+                  submitting !== null ||
+                  order.status === "SHIPPED" ||
+                  order.status === "CANCELLED" ||
+                  (order.paymentMethod !== "COD" &&
+                    order.paymentStatus !== undefined &&
+                    order.paymentStatus !== "VERIFIED")
+                }
                 className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "SHIPPED" ? "Updating..." : "Shipped"}
@@ -349,7 +372,14 @@ export default function AdminOrderDetailPage() {
               <button
                 type="button"
                 onClick={() => void updateStatus("DELIVERED")}
-                disabled={submitting !== null || order.status === "DELIVERED" || order.status === "CANCELLED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
+                disabled={
+                  submitting !== null ||
+                  order.status === "DELIVERED" ||
+                  order.status === "CANCELLED" ||
+                  (order.paymentMethod !== "COD" &&
+                    order.paymentStatus !== undefined &&
+                    order.paymentStatus !== "VERIFIED")
+                }
                 className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "DELIVERED" ? "Updating..." : "Delivered"}

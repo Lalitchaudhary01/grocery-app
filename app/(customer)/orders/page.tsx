@@ -12,6 +12,7 @@ type PublicOrder = {
   id: string;
   status: "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED";
   paymentStatus?: "PENDING_VERIFICATION" | "VERIFIED" | "FAILED";
+  paymentMethod?: string | null;
   subtotalAmount?: number;
   deliveryCharge?: number;
   total: number;
@@ -214,11 +215,13 @@ export default function OrdersPage() {
                 <p>
                   Payment:{" "}
                   <span className="font-semibold text-neutral-900">
-                    {order.paymentStatus === "VERIFIED"
-                      ? "Confirmed"
-                      : order.paymentStatus === "FAILED"
-                        ? "Not Received"
-                        : "Checking"}
+                    {order.paymentMethod === "COD"
+                      ? "Cash on Delivery"
+                      : order.paymentStatus === "VERIFIED"
+                        ? "Confirmed"
+                        : order.paymentStatus === "FAILED"
+                          ? "Not Received"
+                          : "Checking"}
                   </span>
                 </p>
                 <p>Ordered: {formatDate(order.createdAt)}</p>

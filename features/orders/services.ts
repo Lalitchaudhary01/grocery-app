@@ -19,6 +19,7 @@ export interface CreateOrderInput {
     country: string;
   };
   items: InventoryOrderItemInput[];
+  paymentMethod: "UPI_QR" | "COD";
 }
 
 export interface CreatedOrderResult {
@@ -114,20 +115,32 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
       createdAt: Date;
     };
 
+    const isCod = input.paymentMethod === "COD";
+    const paymentStatus = isCod ? "VERIFIED" : "PENDING_VERIFICATION";
+    const paymentNote = isCod
+      ? JSON.stringify({
+          type: "COD",
+          message: "Cash on Delivery selected by customer.",
+          subtotalAmount: priceBreakdown.subtotal,
+          deliveryCharge: priceBreakdown.deliveryCharge,
+          finalAmount: priceBreakdown.total,
+        })
+      : JSON.stringify({
+          type: "UPI_QR_PENDING",
+          message: "Customer marked payment done via QR. Admin verification pending.",
+          subtotalAmount: priceBreakdown.subtotal,
+          deliveryCharge: priceBreakdown.deliveryCharge,
+          finalAmount: priceBreakdown.total,
+        });
+
     try {
       order = await tx.order.create({
         data: {
           userId: customer.id,
           addressId: savedAddress.id,
-          paymentStatus: "PENDING_VERIFICATION",
-          paymentMethod: "UPI_QR",
-          paymentNote: JSON.stringify({
-            type: "UPI_QR_PENDING",
-            message: "Customer marked payment done via QR. Admin verification pending.",
-            subtotalAmount: priceBreakdown.subtotal,
-            deliveryCharge: priceBreakdown.deliveryCharge,
-            finalAmount: priceBreakdown.total,
-          }),
+          paymentStatus,
+          paymentMethod: input.paymentMethod,
+          paymentNote,
           total: priceBreakdown.total,
           items: {
             createMany: {

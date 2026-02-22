@@ -30,6 +30,7 @@ const createOrderSchema = z.object({
       }),
     )
     .min(1),
+  paymentMethod: z.enum(["UPI_QR", "COD"]).default("UPI_QR"),
 });
 
 export async function POST(request: NextRequest) {
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         country: parsed.data.deliveryAddress.country || "India",
       },
       items: parsed.data.items,
+      paymentMethod: parsed.data.paymentMethod,
     });
 
     return NextResponse.json(
