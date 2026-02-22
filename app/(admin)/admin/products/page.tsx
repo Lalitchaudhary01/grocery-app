@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { useToast } from "@/components/ui/ToastProvider";
 import { parseCategoryName } from "@/lib/category-name";
 
 type Category = { id: string; name: string };
@@ -74,6 +75,7 @@ export default function AdminProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   const loadData = useCallback(async () => {
     try {
@@ -188,8 +190,12 @@ export default function AdminProductsPage() {
 
       startCreate();
       await loadData();
+      showSuccessToast(editingId ? "Product updated." : "Product created.");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save product.");
+      const message =
+        saveError instanceof Error ? saveError.message : "Failed to save product.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setSaving(false);
     }
@@ -215,8 +221,12 @@ export default function AdminProductsPage() {
         startCreate();
       }
       await loadData();
+      showSuccessToast("Product deleted.");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete product.");
+      const message =
+        deleteError instanceof Error ? deleteError.message : "Failed to delete product.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setDeletingId(null);
     }
@@ -257,8 +267,12 @@ export default function AdminProductsPage() {
         throw new Error(body?.error || "Failed to update stock.");
       }
       await loadData();
+      showSuccessToast("Stock updated.");
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Failed to update stock.");
+      const message =
+        updateError instanceof Error ? updateError.message : "Failed to update stock.";
+      setError(message);
+      showErrorToast(message);
     }
   }
 
@@ -305,7 +319,8 @@ export default function AdminProductsPage() {
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-            <table className="min-w-full">
+            <div className="overflow-x-auto">
+            <table className="min-w-[760px]">
               <thead className="bg-[#eaf1e3] text-left text-xs font-bold uppercase tracking-wide text-neutral-600">
                 <tr>
                   <th className="px-4 py-3">Product</th>
@@ -429,6 +444,7 @@ export default function AdminProductsPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
 

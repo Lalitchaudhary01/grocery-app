@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useToast } from "@/components/ui/ToastProvider";
+
 type StoreSettings = {
   isOpen: boolean;
   nextOpenAt: string | null;
@@ -16,6 +18,7 @@ export function StoreToggleCard() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   useEffect(() => {
     async function load() {
@@ -51,8 +54,12 @@ export function StoreToggleCard() {
       }
       if (body?.settings) setSettings(body.settings);
       else setSettings((prev) => ({ ...prev, isOpen: !prev.isOpen }));
+      showSuccessToast("Store mode updated.");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to toggle store mode.");
+      const message =
+        saveError instanceof Error ? saveError.message : "Failed to toggle store mode.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setSaving(false);
     }
@@ -92,4 +99,3 @@ export function StoreToggleCard() {
     </section>
   );
 }
-

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { CartItem, type CartLineItem } from "@/components/cart/CartItem";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/ToastProvider";
 import { CART_STORAGE_KEY } from "@/lib/customer-storage";
 import {
   calculateOrderPriceBreakdown,
@@ -36,6 +37,7 @@ export default function CartPage() {
   const [hydrated, setHydrated] = useState(false);
   const [couponCode, setCouponCode] = useState("ATTA30");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -72,14 +74,17 @@ export default function CartPage() {
   );
 
   function increase(id: string) {
+    const target = items.find((item) => item.product.id === id);
     setItems((prev) =>
       prev.map((item) =>
         item.product.id === id ? { ...item, quantity: item.quantity + 1 } : item,
       ),
     );
+    if (target) showInfoToast(`Quantity increased: ${target.product.name}`);
   }
 
   function decrease(id: string) {
+    const target = items.find((item) => item.product.id === id);
     setItems((prev) =>
       prev
         .map((item) =>
@@ -87,23 +92,29 @@ export default function CartPage() {
         )
         .filter((item) => item.quantity > 0),
     );
+    if (target) showInfoToast(`Quantity updated: ${target.product.name}`);
   }
 
   function remove(id: string) {
+    const target = items.find((item) => item.product.id === id);
     setItems((prev) => prev.filter((item) => item.product.id !== id));
+    if (target) showInfoToast(`Removed from cart: ${target.product.name}`);
   }
 
   function clearCart() {
     setItems([]);
     setAppliedCoupon(null);
+    showInfoToast("Cart cleared.");
   }
 
   function applyCoupon() {
     if (couponCode.trim().toUpperCase() === "ATTA30") {
       setAppliedCoupon("ATTA30");
+      showSuccessToast("Coupon applied successfully.");
       return;
     }
     setAppliedCoupon(null);
+    showErrorToast("Invalid coupon code.");
   }
 
   return (
@@ -131,11 +142,11 @@ export default function CartPage() {
           <div className="space-y-4">
             <section className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-5">
-                <h2 className="text-2xl font-extrabold text-neutral-900">{itemCount} Items Selected</h2>
+                <h2 className="text-xl font-extrabold text-neutral-900 sm:text-2xl">{itemCount} Items Selected</h2>
                 <button
                   type="button"
                   onClick={clearCart}
-                  className="text-xl font-bold text-red-500 transition hover:text-red-600"
+                  className="text-base font-bold text-red-500 transition hover:text-red-600 sm:text-xl"
                 >
                   Sab Hatao
                 </button>
@@ -164,10 +175,10 @@ export default function CartPage() {
 
           <aside className="h-fit overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
             <div className="bg-green-800 px-6 py-5">
-              <h2 className="text-2xl font-extrabold text-white">💰 Bill Summary</h2>
+              <h2 className="text-xl font-extrabold text-white sm:text-2xl">💰 Bill Summary</h2>
             </div>
             <div className="space-y-4 p-6">
-              <div className="rounded-2xl bg-green-100 px-4 py-3 text-lg font-bold text-green-800">
+              <div className="rounded-2xl bg-green-100 px-4 py-3 text-base font-bold text-green-800 sm:text-lg">
                 🚴 {delivery === 0
                   ? `3 KM ke andar FREE Delivery!`
                   : `3 KM ke andar delivery charge ₹${DELIVERY_CHARGE_BELOW_THRESHOLD}`}
@@ -183,7 +194,7 @@ export default function CartPage() {
                 <button
                   type="button"
                   onClick={applyCoupon}
-                  className="rounded-2xl border-2 border-green-700 px-6 py-3 text-lg font-extrabold text-green-700 transition hover:bg-green-50"
+                  className="rounded-2xl border-2 border-green-700 px-4 py-3 text-base font-extrabold text-green-700 transition hover:bg-green-50 sm:px-6 sm:text-lg"
                 >
                   Apply
                 </button>
@@ -195,7 +206,7 @@ export default function CartPage() {
                 </div>
               ) : null}
 
-              <div className="space-y-3 pt-1 text-xl text-neutral-700">
+              <div className="space-y-3 pt-1 text-lg text-neutral-700 sm:text-xl">
                 <div className="flex items-center justify-between">
                   <span>Subtotal ({itemCount} items)</span>
                   <span className="font-bold text-neutral-900">{formatINR(subtotal)}</span>
@@ -209,7 +220,7 @@ export default function CartPage() {
                   <span className="font-bold text-neutral-900">-{formatINR(discount)}</span>
                 </div>
                 <div className="h-px bg-neutral-300" />
-                <div className="flex items-center justify-between text-3xl font-extrabold text-neutral-900">
+                <div className="flex items-center justify-between text-2xl font-extrabold text-neutral-900 sm:text-3xl">
                   <span>Total Dena Hai</span>
                   <span className="text-green-700">{formatINR(total)}</span>
                 </div>
@@ -220,13 +231,13 @@ export default function CartPage() {
                 </p>
               </div>
 
-              <Button href="/checkout" className="w-full text-2xl font-extrabold" variant="primary">
+              <Button href="/checkout" className="w-full text-lg font-extrabold sm:text-2xl" variant="primary">
                 Checkout Karein →
               </Button>
 
               <Link
                 href="/products"
-                className="block text-center text-xl font-bold text-neutral-600 transition hover:text-green-700"
+                className="block text-center text-lg font-bold text-neutral-600 transition hover:text-green-700 sm:text-xl"
               >
                 ← Shopping Jaari Rakho
               </Link>

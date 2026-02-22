@@ -158,4 +158,13 @@
   .animate-soft-float {
     animation: soft-float 4s ease-in-out infinite;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

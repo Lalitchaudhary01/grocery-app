@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { useToast } from "@/components/ui/ToastProvider";
 import { parseCategoryName } from "@/lib/category-name";
 
 type Product = {
@@ -75,7 +76,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("all");
@@ -84,6 +85,7 @@ export default function ProductsPage() {
   );
   const [priceCap, setPriceCap] = useState(PRICE_FALLBACK_MAX);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -129,12 +131,6 @@ export default function ProductsPage() {
 
     void loadData();
   }, []);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 2000);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   const maxPrice = useMemo(() => {
     if (allProducts.length === 0) return PRICE_FALLBACK_MAX;
@@ -211,7 +207,10 @@ export default function ProductsPage() {
   }
 
   function addToCart(product: Product) {
-    if (product.stock <= 0) return;
+    if (product.stock <= 0) {
+      showErrorToast("Product out of stock.");
+      return;
+    }
     setAddingId(product.id);
     try {
       const cart = readCart();
@@ -223,7 +222,7 @@ export default function ProductsPage() {
       }
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
       window.dispatchEvent(new Event("storage"));
-      setToast(`${product.name} added to cart`);
+      showSuccessToast(`${product.name} added to cart`);
     } finally {
       setAddingId(null);
     }
@@ -232,13 +231,22 @@ export default function ProductsPage() {
   return (
     <div className="bg-neutral-100 px-4 py-6 sm:px-6">
       <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="h-fit overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
-          <div className="border-b border-neutral-200 p-5">
-            <h2 className="text-3xl font-extrabold text-neutral-900">FILTERS</h2>
+        <aside
+          className={`${showFilters ? "block" : "hidden"} h-fit overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm lg:block`}
+        >
+          <div className="flex items-center justify-between border-b border-neutral-200 p-5">
+            <h2 className="text-2xl font-extrabold text-neutral-900 sm:text-3xl">FILTERS</h2>
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              className="rounded-lg border border-neutral-300 px-2 py-1 text-xs font-semibold text-neutral-700 lg:hidden"
+            >
+              Close
+            </button>
           </div>
 
           <div className="space-y-4 border-b border-neutral-200 p-5">
-            <h3 className="text-3xl font-extrabold text-neutral-900">CATEGORY</h3>
+            <h3 className="text-2xl font-extrabold text-neutral-900 sm:text-3xl">CATEGORY</h3>
             <button
               type="button"
               onClick={() => setCategoryId("all")}
@@ -293,7 +301,7 @@ export default function ProductsPage() {
           </div>
 
           <div className="space-y-4 border-b border-neutral-200 p-5">
-            <h3 className="text-3xl font-extrabold text-neutral-900">PRICE RANGE</h3>
+            <h3 className="text-2xl font-extrabold text-neutral-900 sm:text-3xl">PRICE RANGE</h3>
             <input
               type="range"
               min={0}
@@ -310,7 +318,7 @@ export default function ProductsPage() {
           </div>
 
           <div className="space-y-4 p-5">
-            <h3 className="text-3xl font-extrabold text-neutral-900">BRAND</h3>
+            <h3 className="text-2xl font-extrabold text-neutral-900 sm:text-3xl">BRAND</h3>
             <div className="space-y-2">
               {brandList.map((brand) => (
                 <label
@@ -335,8 +343,8 @@ export default function ProductsPage() {
 
         <section className="space-y-4">
           <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-3xl font-bold text-neutral-900">
+            <div className="flex items-start justify-between gap-3 sm:items-center">
+              <p className="text-2xl font-bold text-neutral-900 sm:text-3xl">
                 {displayedProducts.length} products{" "}
                 {query.trim() ? (
                   <span className="font-medium text-neutral-500">
@@ -344,42 +352,49 @@ export default function ProductsPage() {
                   </span>
                 ) : null}
               </p>
-              <div className="flex items-center gap-2">
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search products"
-                  className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium focus:border-green-600 focus:outline-none"
-                />
-                <select
-                  value={sortBy}
-                  onChange={(event) =>
-                    setSortBy(
-                      event.target.value as "popular" | "priceLow" | "priceHigh" | "name",
-                    )
-                  }
-                  className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 focus:border-green-600 focus:outline-none"
-                >
-                  <option value="popular">Pehle Popular</option>
-                  <option value="priceLow">Price: Low to High</option>
-                  <option value="priceHigh">Price: High to Low</option>
-                  <option value="name">Name A-Z</option>
-                </select>
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-300 text-neutral-500">
-                  ⊞
-                </span>
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-300 text-neutral-500">
-                  ☰
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowFilters((previous) => !previous)}
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 lg:hidden"
+              >
+                {showFilters ? "Hide Filters" : "Show Filters"}
+              </button>
+            </div>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search products"
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-medium focus:border-green-600 focus:outline-none"
+              />
+              <select
+                value={sortBy}
+                onChange={(event) =>
+                  setSortBy(
+                    event.target.value as "popular" | "priceLow" | "priceHigh" | "name",
+                  )
+                }
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-800 focus:border-green-600 focus:outline-none"
+              >
+                <option value="popular">Pehle Popular</option>
+                <option value="priceLow">Price: Low to High</option>
+                <option value="priceHigh">Price: High to Low</option>
+                <option value="name">Name A-Z</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryId("all");
+                  setSelectedBrands([]);
+                  setPriceCap(maxPrice);
+                }}
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-100"
+              >
+                Reset
+              </button>
             </div>
           </div>
-
-          {toast ? (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-800">
-              {toast}
-            </div>
-          ) : null}
 
           {loading ? (
             <div className="rounded-2xl border border-neutral-200 bg-white p-4 text-sm text-neutral-600 shadow-sm">
@@ -394,7 +409,7 @@ export default function ProductsPage() {
               No products found for selected filters.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {displayedProducts.map((product) => {
                 const inStock = product.stock > 0;
                 const mrp = product.mrp && product.mrp > product.price ? product.mrp : null;
@@ -411,7 +426,7 @@ export default function ProductsPage() {
                     className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <Link href={`/products/${product.id}`} className="block">
-                      <div className="relative h-52 w-full bg-[#edf3e6]">
+                      <div className="relative h-44 w-full bg-[#edf3e6] sm:h-52">
                         {inStock && discountPercent > 0 ? (
                           <span className="absolute left-3 top-3 z-10 rounded-md bg-red-500 px-2 py-1 text-xs font-bold text-white">
                             {discountPercent}% OFF
@@ -439,7 +454,7 @@ export default function ProductsPage() {
                       <p className="text-sm font-bold uppercase tracking-wide text-green-700">
                         {product.category?.name || "General"}
                       </p>
-                      <h3 className="line-clamp-1 text-2xl font-bold text-neutral-900">
+                      <h3 className="line-clamp-1 text-lg font-bold text-neutral-900 sm:text-2xl">
                         {product.name}
                       </h3>
                       <p className="text-sm text-neutral-500">
@@ -450,7 +465,7 @@ export default function ProductsPage() {
                       ) : null}
                       <div className="mt-2 flex items-end justify-between">
                         <div>
-                          <p className="text-3xl font-extrabold text-green-700">
+                          <p className="text-2xl font-extrabold text-green-700 sm:text-3xl">
                             {formatINR(product.price)}
                           </p>
                           {mrp ? (
@@ -463,7 +478,7 @@ export default function ProductsPage() {
                           type="button"
                           onClick={() => addToCart(product)}
                           disabled={!inStock || addingId === product.id}
-                          className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-green-700 text-3xl font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-green-700 text-2xl font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-neutral-400 sm:h-12 sm:w-12 sm:text-3xl"
                         >
                           {addingId === product.id ? "…" : "+"}
                         </button>

@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
+import { useToast } from "@/components/ui/ToastProvider";
 import { parseOrderPaymentMeta } from "@/lib/order-payment-meta";
 import type { OrderStatus } from "@/lib/order-enums";
 
@@ -106,6 +107,7 @@ export default function AdminOrderDetailPage() {
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const pricing = order ? parseOrderPaymentMeta(order.paymentNote) : null;
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   const loadOrder = useCallback(async () => {
     try {
@@ -161,12 +163,14 @@ export default function AdminOrderDetailPage() {
 
       await loadOrder();
       router.refresh();
+      showSuccessToast("Order status updated.");
     } catch (updateError) {
-      setError(
+      const message =
         updateError instanceof Error
           ? updateError.message
-          : "Failed to update order status.",
-      );
+          : "Failed to update order status.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setSubmitting(null);
     }
@@ -195,12 +199,14 @@ export default function AdminOrderDetailPage() {
 
       await loadOrder();
       router.refresh();
+      showSuccessToast("Payment status updated.");
     } catch (updateError) {
-      setError(
+      const message =
         updateError instanceof Error
           ? updateError.message
-          : "Failed to update payment status.",
-      );
+          : "Failed to update payment status.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setSubmitting(null);
     }
@@ -212,7 +218,7 @@ export default function AdminOrderDetailPage() {
         <Link href="/admin/orders" className="text-sm font-semibold text-green-700 hover:underline">
           ← Back to Orders
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-neutral-900">Order Details</h1>
+        <h1 className="mt-2 text-lg font-bold text-neutral-900 sm:text-xl">Order Details</h1>
       </div>
 
       {error ? (
@@ -231,7 +237,7 @@ export default function AdminOrderDetailPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-neutral-600">Order ID</p>
-                <p className="font-bold text-neutral-900">{order.id}</p>
+                <p className="break-all font-bold text-neutral-900">{order.id}</p>
               </div>
               <Badge tone={toneFromStatus(order.status)}>{labelFromStatus(order.status)}</Badge>
             </div>
@@ -296,12 +302,12 @@ export default function AdminOrderDetailPage() {
               </p>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
               <a
                 href={`/api/orders/${order.id}/packing-slip`}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+                className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
               >
                 Print Packing Slip
               </a>
@@ -323,12 +329,12 @@ export default function AdminOrderDetailPage() {
               </button>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => void updateStatus("CONFIRMED")}
                 disabled={submitting !== null || order.status === "CONFIRMED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
-                className="rounded-md bg-green-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                className="rounded-md bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "CONFIRMED" ? "Accepting..." : "Accept"}
               </button>
@@ -336,7 +342,7 @@ export default function AdminOrderDetailPage() {
                 type="button"
                 onClick={() => void updateStatus("SHIPPED")}
                 disabled={submitting !== null || order.status === "SHIPPED" || order.status === "CANCELLED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "SHIPPED" ? "Updating..." : "Shipped"}
               </button>
@@ -344,7 +350,7 @@ export default function AdminOrderDetailPage() {
                 type="button"
                 onClick={() => void updateStatus("DELIVERED")}
                 disabled={submitting !== null || order.status === "DELIVERED" || order.status === "CANCELLED" || (order.paymentStatus && order.paymentStatus !== "VERIFIED")}
-                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "DELIVERED" ? "Updating..." : "Delivered"}
               </button>
@@ -352,7 +358,7 @@ export default function AdminOrderDetailPage() {
                 type="button"
                 onClick={() => void updateStatus("CANCELLED")}
                 disabled={submitting !== null || order.status === "CANCELLED"}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
+                className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
                 {submitting === "CANCELLED" ? "Rejecting..." : "Reject"}
               </button>

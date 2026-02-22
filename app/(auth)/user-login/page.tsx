@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/ToastProvider";
 
 export default function UserLoginPage() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function UserLoginPage() {
   const [mobile, setMobile] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,10 +39,13 @@ export default function UserLoginPage() {
         throw new Error(body?.error || "Login failed.");
       }
 
+      showSuccessToast("Login successful.");
       router.replace("/products");
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Login failed.");
+      const message = submitError instanceof Error ? submitError.message : "Login failed.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setLoading(false);
     }

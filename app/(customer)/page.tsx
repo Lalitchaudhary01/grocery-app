@@ -77,15 +77,18 @@ export default async function CustomerHomePage() {
         <div className="animate-rise-in overflow-hidden rounded-2xl bg-gradient-to-br from-green-700 via-green-600 to-green-500 text-white shadow-lg ring-1 ring-green-900/20">
           <div className="grid gap-6 px-5 py-8 sm:px-8 sm:py-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
             <div>
-              <p className="inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-green-50">
-                Mohanpur Local Grocery
-              </p>
-              <h1 className="mt-3 max-w-2xl text-3xl font-extrabold leading-tight sm:text-4xl">
-                Vivek Chaudhary Mohanpur Wale
-              </h1>
-              <p className="mt-3 inline-block rounded-full bg-amber-400 px-4 py-1.5 text-sm font-bold text-green-900">
-                3 KM ke andar Home Delivery
-              </p>
+             <p className="inline-flex rounded-full bg-white/20 backdrop-blur-md px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-white border border-white/30">
+  Gaon Ki Apni Dukaan
+</p>
+
+<h1 className="mt-4 max-w-2xl text-4xl font-extrabold leading-tight sm:text-5xl">
+  <span className="text-white">Apni </span>
+  <span className="text-yellow-400 drop-shadow-md">Dukaan</span>
+</h1>
+
+<p className="mt-4 inline-block rounded-full bg-yellow-400 px-5 py-2 text-sm font-bold text-black shadow-lg transition hover:scale-105">
+  3 KM ke andar Tez Home Delivery
+</p>
 
               <form action="/products" method="get" className="mt-5 max-w-xl">
                 <div className="flex gap-2">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import type { CartLineItem } from "@/components/cart/CartItem";
+import { useToast } from "@/components/ui/ToastProvider";
 import { CART_STORAGE_KEY } from "@/lib/customer-storage";
 
 type PublicOrder = {
@@ -70,6 +71,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<PublicOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   async function loadOrders() {
     try {
@@ -86,11 +88,11 @@ export default function OrdersPage() {
       const mapped = Array.isArray(body?.orders) ? body.orders : [];
       setOrders(mapped);
     } catch (loadError) {
-      setError(
+      const message =
         loadError instanceof Error
           ? loadError.message
-          : "Unable to load order history.",
-      );
+          : "Unable to load order history.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -131,8 +133,9 @@ export default function OrdersPage() {
       }
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(next));
       window.dispatchEvent(new Event("storage"));
+      showSuccessToast("Items added to cart.");
     } catch {
-      // no-op
+      showErrorToast("Failed to add reorder items.");
     }
   }
 

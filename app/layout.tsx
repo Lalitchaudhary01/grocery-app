@@ -4,6 +4,7 @@ import "./globals.css";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { StoreStatusBanner } from "@/components/layout/StoreStatusBanner";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Apni Dukaan - Grocery Delivery App",
@@ -23,12 +24,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-neutral-100 text-neutral-900">
-        <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col bg-white shadow-sm">
-          <Navbar />
-          <StoreStatusBanner />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </div>
+        <ToastProvider>
+          <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col bg-white shadow-sm">
+            <Navbar />
+            <StoreStatusBanner />
+            <main className="flex-1">{children}</main>
+            <Footer />
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

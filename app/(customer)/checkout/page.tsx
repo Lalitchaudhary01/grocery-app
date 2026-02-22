@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   CART_STORAGE_KEY,
   DEFAULT_ADDRESS_ID_STORAGE_KEY,
@@ -89,6 +90,7 @@ export default function CheckoutPage() {
   const [paymentStep, setPaymentStep] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
+  const { success: showSuccessToast, error: showErrorToast, info: showInfoToast } = useToast();
 
   useEffect(() => {
     async function boot() {
@@ -212,6 +214,7 @@ export default function CheckoutPage() {
     if (!valid) return;
     localStorage.setItem(DELIVERY_ADDRESS_STORAGE_KEY, JSON.stringify(valid));
     setPaymentStep(true);
+    showInfoToast("Address saved. Proceed to payment.");
   }
 
   async function submitOrderAfterPayment() {
@@ -272,9 +275,12 @@ export default function CheckoutPage() {
 
       localStorage.removeItem(CART_STORAGE_KEY);
       window.dispatchEvent(new Event("storage"));
+      showSuccessToast("Order placed successfully.");
       router.push(`/success?orderId=${orderId}`);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Order failed.");
+      const message = submitError instanceof Error ? submitError.message : "Order failed.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setSubmitting(false);
     }
@@ -464,7 +470,10 @@ export default function CheckoutPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setPaymentStep(false)}
+                  onClick={() => {
+                    setPaymentStep(false);
+                    showInfoToast("You can edit delivery details now.");
+                  }}
                   disabled={submitting}
                 >
                   Address Edit

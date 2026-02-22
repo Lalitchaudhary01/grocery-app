@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
           id: user.id,
           name: user.name,
           mobile: emailToMobile(user.email),
+          email: emailToMobile(user.email) ? null : user.email,
         },
       },
       { status: 200 },

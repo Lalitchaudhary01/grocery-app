@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { OrderStatus, PaymentStatus } from "@/lib/order-enums";
+import { useToast } from "@/components/ui/ToastProvider";
 
 type AdminOrder = {
   id: string;
@@ -103,6 +104,7 @@ export default function AdminOrdersPage() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [bulkStatus, setBulkStatus] = useState<OrderStatus>("CONFIRMED");
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   const loadOrders = useCallback(async () => {
     try {
@@ -174,8 +176,11 @@ export default function AdminOrdersPage() {
       }
 
       await loadOrders();
+      showSuccessToast("Order updated.");
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Update failed.");
+      const message = updateError instanceof Error ? updateError.message : "Update failed.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setRowUpdating(null);
     }
@@ -235,8 +240,11 @@ export default function AdminOrdersPage() {
         }
       }
       await loadOrders();
+      showSuccessToast(`Bulk status updated for ${selectedOrderIds.length} orders.`);
     } catch (bulkError) {
-      setError(bulkError instanceof Error ? bulkError.message : "Bulk update failed.");
+      const message = bulkError instanceof Error ? bulkError.message : "Bulk update failed.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setBulkUpdating(false);
     }
@@ -245,7 +253,7 @@ export default function AdminOrdersPage() {
   return (
     <div className="space-y-4">
       <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[180px_1fr_220px_auto] lg:items-center">
+        <div className="grid gap-2 sm:gap-3 lg:grid-cols-[180px_1fr_220px_auto] lg:items-center">
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as "" | OrderStatus)}
@@ -318,7 +326,117 @@ export default function AdminOrdersPage() {
       ) : null}
 
       <section className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="divide-y divide-neutral-100 md:hidden">
+          {loading ? (
+            <p className="px-4 py-6 text-sm text-neutral-600">Loading orders...</p>
+          ) : orders.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-neutral-600">Orders nahi mile.</p>
+          ) : (
+            orders.map((order) => (
+              <article key={order.id} className="space-y-2 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-base font-extrabold text-neutral-900">
+                      #{order.id.slice(0, 8).toUpperCase()}
+                    </p>
+                    <p className="text-xs text-neutral-500">{relativeTime(order.createdAt)}</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedOrderIds.includes(order.id)}
+                    onChange={(event) => {
+                      setSelectedOrderIds((prev) =>
+                        event.target.checked
+                          ? Array.from(new Set([...prev, order.id]))
+                          : prev.filter((id) => id !== order.id),
+                      );
+                    }}
+                  />
+                </div>
+
+                <p className="text-sm font-semibold text-neutral-900">
+                  {order.user.name || "Customer"}
+                </p>
+                <p className="text-xs text-neutral-600">📞 {order.address?.phone || "N/A"}</p>
+                <p className="text-xs text-neutral-600">
+                  {order.address ? `${order.address.street}, ${order.address.city}` : "Address not available"}
+                </p>
+                <p className="text-sm text-neutral-700">{formatItems(order)}</p>
+                <p className="text-lg font-extrabold text-neutral-900">{formatINR(order.total)}</p>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
+                    {methodLabel(order.paymentMethod)}
+                  </span>
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${paymentPillClass(
+                      order.paymentStatus,
+                    )}`}
+                  >
+                    {order.paymentStatus === "VERIFIED"
+                      ? "Verified"
+                      : order.paymentStatus === "FAILED"
+                        ? "Failed"
+                        : "Pending Verify"}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusPillClass(
+                      order.status,
+                    )}`}
+                  >
+                    {STATUS_OPTIONS.find((option) => option.value === order.status)?.icon}{" "}
+                    {STATUS_OPTIONS.find((option) => option.value === order.status)?.label}
+                  </span>
+                  <select
+                    value={order.status}
+                    onChange={(event) => handleStatusChange(order, event.target.value as OrderStatus)}
+                    disabled={
+                      rowUpdating?.id === order.id ||
+                      (order.paymentStatus !== "VERIFIED" &&
+                        order.status !== "PENDING" &&
+                        order.status !== "CANCELLED")
+                    }
+                    className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs font-semibold text-neutral-800 focus:border-green-600 focus:outline-none disabled:cursor-not-allowed disabled:bg-neutral-100"
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.icon} {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {order.paymentStatus !== "VERIFIED" ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void updateOrder(order.id, { paymentStatus: "VERIFIED" }, "payment")
+                      }
+                      disabled={rowUpdating?.id === order.id}
+                      className="rounded-lg bg-green-700 px-3 py-1 text-xs font-bold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:bg-green-400"
+                    >
+                      {rowUpdating?.id === order.id && rowUpdating.type === "payment"
+                        ? "Verifying..."
+                        : "Verify UPI"}
+                    </button>
+                  ) : null}
+                  <Link
+                    href={`/admin/orders/${order.id}`}
+                    className="inline-flex rounded-xl bg-green-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-800"
+                  >
+                    Dekho
+                  </Link>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-[1100px] text-sm">
             <thead className="bg-[#eaf1e3] text-left text-xs font-bold uppercase tracking-wide text-neutral-600">
               <tr>

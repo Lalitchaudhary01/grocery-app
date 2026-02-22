@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { useToast } from "@/components/ui/ToastProvider";
 import { buildCategoryName, parseCategoryName } from "@/lib/category-name";
 
 type Category = {
@@ -39,6 +40,7 @@ export default function AdminCategoriesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   async function loadCategories() {
     try {
@@ -52,7 +54,9 @@ export default function AdminCategoriesPage() {
       const list = Array.isArray(body?.categories) ? body.categories : [];
       setCategories(list);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load categories.");
+      const message =
+        loadError instanceof Error ? loadError.message : "Failed to load categories.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -116,8 +120,12 @@ export default function AdminCategoriesPage() {
 
       startCreateMode();
       await loadCategories();
+      showSuccessToast(editingId ? "Category updated." : "Category created.");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save category.");
+      const message =
+        saveError instanceof Error ? saveError.message : "Failed to save category.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setSaving(false);
     }
@@ -138,8 +146,12 @@ export default function AdminCategoriesPage() {
         startCreateMode();
       }
       await loadCategories();
+      showSuccessToast("Category deleted.");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete category.");
+      const message =
+        deleteError instanceof Error ? deleteError.message : "Failed to delete category.";
+      setError(message);
+      showErrorToast(message);
     } finally {
       setDeletingId(null);
     }
@@ -159,88 +171,90 @@ export default function AdminCategoriesPage() {
             <h2 className="text-3xl font-extrabold text-neutral-900">Current Categories</h2>
           </div>
 
-          <table className="min-w-full">
-            <thead className="bg-[#eaf1e3] text-left text-xs font-bold uppercase tracking-wide text-neutral-600">
-              <tr>
-                <th className="px-4 py-3">Icon</th>
-                <th className="px-4 py-3">Category Name</th>
-                <th className="px-4 py-3">Products</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {loading ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-[720px]">
+              <thead className="bg-[#eaf1e3] text-left text-xs font-bold uppercase tracking-wide text-neutral-600">
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-neutral-600">
-                    Loading categories...
-                  </td>
+                  <th className="px-4 py-3">Icon</th>
+                  <th className="px-4 py-3">Category Name</th>
+                  <th className="px-4 py-3">Products</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
-              ) : sortedCategories.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-neutral-600">
-                    No categories found.
-                  </td>
-                </tr>
-              ) : (
-                sortedCategories.map((category) => {
-                  const parsed = parseCategoryName(category.name);
-                  const label = parsed.label;
-                  const imageUrl = parsed.imageUrl;
-                  const productsCount = category._count?.products ?? 0;
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-neutral-600">
+                      Loading categories...
+                    </td>
+                  </tr>
+                ) : sortedCategories.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-neutral-600">
+                      No categories found.
+                    </td>
+                  </tr>
+                ) : (
+                  sortedCategories.map((category) => {
+                    const parsed = parseCategoryName(category.name);
+                    const label = parsed.label;
+                    const imageUrl = parsed.imageUrl;
+                    const productsCount = category._count?.products ?? 0;
 
-                  return (
-                    <tr key={category.id}>
-                      <td className="px-4 py-4">
-                        {imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={imageUrl}
-                            alt={label}
-                            className="h-12 w-12 rounded-lg border border-neutral-200 object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-100 text-xs font-bold text-neutral-600">
-                            {label.slice(0, 1).toUpperCase() || "C"}
+                    return (
+                      <tr key={category.id}>
+                        <td className="px-4 py-4">
+                          {imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={imageUrl}
+                              alt={label}
+                              className="h-12 w-12 rounded-lg border border-neutral-200 object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-100 text-xs font-bold text-neutral-600">
+                              {label.slice(0, 1).toUpperCase() || "C"}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-lg font-bold text-neutral-900 sm:text-2xl">{label}</td>
+                        <td className="px-4 py-4">
+                          <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-bold text-neutral-600">
+                            {productsCount}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-green-700">
+                            Active
+                          </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditMode(category)}
+                              className="rounded-xl border-2 border-green-700 px-3 py-1.5 text-sm font-bold text-green-700 hover:bg-green-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteCategory(category.id)}
+                              disabled={deletingId === category.id}
+                              className="rounded-xl bg-red-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-60"
+                            >
+                              {deletingId === category.id ? "..." : "Del"}
+                            </button>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 text-2xl font-bold text-neutral-900">{label}</td>
-                      <td className="px-4 py-4">
-                        <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-bold text-neutral-600">
-                          {productsCount}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-green-700">
-                          Active
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEditMode(category)}
-                            className="rounded-xl border-2 border-green-700 px-3 py-1.5 text-sm font-bold text-green-700 hover:bg-green-50"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void deleteCategory(category.id)}
-                            disabled={deletingId === category.id}
-                            className="rounded-xl bg-red-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-60"
-                          >
-                            {deletingId === category.id ? "..." : "Del"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">

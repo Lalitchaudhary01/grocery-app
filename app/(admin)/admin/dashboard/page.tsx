@@ -387,10 +387,10 @@ export default async function AdminDashboardPage() {
           >
             <div className={`h-1.5 w-full ${stat.accent}`} />
             <div className="space-y-2 px-5 py-4">
-              <p className="text-2xl">{stat.icon}</p>
-              <p className="text-4xl font-extrabold text-neutral-900">{stat.value}</p>
-              <p className="text-xl font-semibold text-neutral-600">{stat.label}</p>
-              <p className="text-base font-semibold text-green-700">{stat.note}</p>
+              <p className="text-xl sm:text-2xl">{stat.icon}</p>
+              <p className="text-2xl font-extrabold text-neutral-900 sm:text-4xl">{stat.value}</p>
+              <p className="text-base font-semibold text-neutral-600 sm:text-xl">{stat.label}</p>
+              <p className="text-sm font-semibold text-green-700 sm:text-base">{stat.note}</p>
               <p className="text-xs text-neutral-500">{stat.subNote}</p>
             </div>
           </article>
@@ -399,9 +399,9 @@ export default async function AdminDashboardPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h2 className="text-3xl font-extrabold text-neutral-900">Pichhle 7 Din ki Sale</h2>
-          <p className="mt-1 text-base text-neutral-600">Rozana kitna hua</p>
-          <div className="mt-4 grid h-44 grid-cols-7 items-end gap-3 rounded-2xl bg-neutral-50 p-3">
+          <h2 className="text-xl font-extrabold text-neutral-900 sm:text-3xl">Pichhle 7 Din ki Sale</h2>
+          <p className="mt-1 text-sm text-neutral-600 sm:text-base">Rozana kitna hua</p>
+          <div className="mt-4 grid h-36 grid-cols-7 items-end gap-2 rounded-2xl bg-neutral-50 p-3 sm:h-44 sm:gap-3">
             {dailySalesBars.map((bar) => (
               <div key={bar.label} className="flex flex-col items-center gap-2">
                 <div
@@ -410,25 +410,25 @@ export default async function AdminDashboardPage() {
                     height: `${Math.max(8, Math.round((bar.value / maxDailySale) * 100))}%`,
                   }}
                 />
-                <p className="text-sm font-semibold text-neutral-500">{bar.label}</p>
+                <p className="text-xs font-semibold text-neutral-500 sm:text-sm">{bar.label}</p>
               </div>
             ))}
           </div>
         </section>
 
         <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h2 className="text-3xl font-extrabold text-neutral-900">Category Wise Sale</h2>
+          <h2 className="text-xl font-extrabold text-neutral-900 sm:text-3xl">Category Wise Sale</h2>
           <div className="mt-5 space-y-4">
             {categorySaleRows.length === 0 ? (
-              <p className="text-base text-neutral-600">Abhi category sales data nahi hai.</p>
+              <p className="text-sm text-neutral-600 sm:text-base">Abhi category sales data nahi hai.</p>
             ) : (
               categorySaleRows.map((row, index) => {
                 const colors = ["bg-green-600", "bg-amber-500", "bg-blue-600", "bg-red-500"];
                 return (
                   <div key={row.id}>
                     <div className="mb-1 flex items-center justify-between">
-                      <p className="text-xl font-semibold text-neutral-800">{row.name}</p>
-                      <p className="text-xl font-bold text-neutral-900">{formatINR(row.total)}</p>
+                      <p className="text-base font-semibold text-neutral-800 sm:text-xl">{row.name}</p>
+                      <p className="text-base font-bold text-neutral-900 sm:text-xl">{formatINR(row.total)}</p>
                     </div>
                     <div className="h-3 w-full overflow-hidden rounded-full bg-neutral-100">
                       <div
@@ -501,10 +501,10 @@ export default async function AdminDashboardPage() {
 
       <section className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-5 py-4">
-          <h2 className="text-3xl font-extrabold text-neutral-900">📋 Haale Orders (Pending)</h2>
+          <h2 className="text-xl font-extrabold text-neutral-900 sm:text-3xl">📋 Haale Orders (Pending)</h2>
           <Link
             href="/admin/orders"
-            className="rounded-2xl border-2 border-green-700 px-5 py-2 text-lg font-bold text-green-700 transition hover:bg-green-50"
+            className="rounded-2xl border-2 border-green-700 px-4 py-1.5 text-sm font-bold text-green-700 transition hover:bg-green-50 sm:px-5 sm:py-2 sm:text-lg"
           >
             Sab Dekho →
           </Link>
@@ -514,7 +514,7 @@ export default async function AdminDashboardPage() {
           <p className="px-5 py-6 text-lg text-neutral-600">Koi recent order nahi mila.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full">
+            <table className="min-w-[760px]">
               <thead className="bg-[#eaf1e3] text-left">
                 <tr className="text-base uppercase tracking-wide text-neutral-600">
                   <th className="px-5 py-3">Order ID</th>
@@ -562,14 +562,14 @@ export default async function AdminDashboardPage() {
       </section>
 
       {lowStockProductsTyped.length > 0 ? (
-        <div className="rounded-2xl border-l-4 border-red-500 bg-red-50 px-4 py-3 text-base text-red-600">
+        <div className="rounded-2xl border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-600 sm:text-base">
           <span className="font-bold">⚠ Low Stock Alert:</span>{" "}
           {lowStockProductsTyped
             .map((product: LowStockProductRow) => `${product.name} (${product.stock} left)`)
             .join(", ")}
         </div>
       ) : (
-        <div className="rounded-2xl border-l-4 border-green-500 bg-green-50 px-4 py-3 text-base text-green-700">
+        <div className="rounded-2xl border-l-4 border-green-500 bg-green-50 px-4 py-3 text-sm text-green-700 sm:text-base">
           ✅ Low stock alert clear. Inventory healthy.
         </div>
       )}
