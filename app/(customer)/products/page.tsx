@@ -41,14 +41,6 @@ const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80";
 const PRICE_FALLBACK_MAX = 1000;
 
-const CATEGORY_ICONS: Array<{ matcher: RegExp; icon: string }> = [
-  { matcher: /aata|atta|anaaj|anaj|grain|rice|chawal|daal|dal/i, icon: "🌾" },
-  { matcher: /oil|tel|ghee/i, icon: "🛢️" },
-  { matcher: /masala|spice|salt|namak/i, icon: "🧂" },
-  { matcher: /safai|clean|harpic|detergent/i, icon: "🧹" },
-  { matcher: /soap|care|personal|shampoo/i, icon: "🧴" },
-];
-
 function readCart(): CartItem[] {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
@@ -67,13 +59,6 @@ function formatINR(value: number) {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function categoryIcon(name: string): string {
-  const parsed = parseCategoryName(name);
-  if (parsed.icon) return parsed.icon;
-  const matched = CATEGORY_ICONS.find((entry) => entry.matcher.test(name));
-  return matched?.icon ?? "🛒";
 }
 
 function getBrandFromName(name: string): string {
@@ -270,25 +255,40 @@ export default function ProductsPage() {
             </button>
 
             <div className="space-y-2">
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => setCategoryId(category.id)}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold ${
-                    categoryId === category.id
-                      ? "bg-green-100 text-green-900"
-                      : "text-neutral-700 hover:bg-neutral-100"
-                  }`}
-                >
-                  <span>
-                    {categoryIcon(category.name)} {parseCategoryName(category.name).label}
-                  </span>
-                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs">
-                    {categoryCounts.get(category.id) ?? 0}
-                  </span>
-                </button>
-              ))}
+              {categories.map((category) => {
+                const parsedCategory = parseCategoryName(category.name);
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setCategoryId(category.id)}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold ${
+                      categoryId === category.id
+                        ? "bg-green-100 text-green-900"
+                        : "text-neutral-700 hover:bg-neutral-100"
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      {parsedCategory.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={parsedCategory.imageUrl}
+                          alt={parsedCategory.label}
+                          className="h-5 w-5 rounded object-cover"
+                        />
+                      ) : (
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-bold text-neutral-600">
+                          {parsedCategory.label.slice(0, 1).toUpperCase() || "C"}
+                        </span>
+                      )}
+                      <span>{parsedCategory.label}</span>
+                    </span>
+                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs">
+                      {categoryCounts.get(category.id) ?? 0}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

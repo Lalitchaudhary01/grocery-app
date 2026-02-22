@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { CART_STORAGE_KEY } from "@/lib/customer-storage";
+
 type CustomerMeResponse = {
   user?: {
     id: string;
@@ -12,6 +14,22 @@ type CustomerMeResponse = {
     mobile: string | null;
   };
 };
+
+type CartStorageItem = {
+  quantity?: number;
+};
+
+function readCartItemCount(): number {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as CartStorageItem[] | null;
+    if (!Array.isArray(parsed)) return 0;
+    return parsed.reduce((total, item) => total + (typeof item.quantity === "number" ? item.quantity : 0), 0);
+  } catch {
+    return 0;
+  }
+}
 
 export function Navbar() {
   const pathname = usePathname();
@@ -21,6 +39,7 @@ export function Navbar() {
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
 
   async function loadCustomerSession() {
     try {
@@ -47,6 +66,18 @@ export function Navbar() {
     void loadCustomerSession();
   }, [isAdminRoute]);
 
+  useEffect(() => {
+    if (isAdminRoute) {
+      setCartCount(0);
+      return;
+    }
+
+    const syncCount = () => setCartCount(readCartItemCount());
+    syncCount();
+    window.addEventListener("storage", syncCount);
+    return () => window.removeEventListener("storage", syncCount);
+  }, [isAdminRoute]);
+
   async function handleLogout() {
     try {
       setLoggingOut(true);
@@ -60,39 +91,39 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-green-100 bg-green-700">
-      <div className="mx-auto flex w-full items-center justify-between px-4 py-3 sm:px-6">
-        <div>
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/logo-mark.svg"
-              alt="Vivek Chaudhary Mohanpur Wale"
-              width={44}
-              height={44}
-              className="h-10 w-10 rounded-md bg-white/90 p-1"
-              priority
-            />
-            <div>
-              <p className="text-sm font-bold leading-tight text-white sm:text-base">
-                Vivek Chaudhary
-                <br />
-                Mohanpur Wale
-              </p>
-              <p className="text-[11px] text-green-100 sm:text-xs">
-                3 KM ke andar Home Delivery
-              </p>
-            </div>
-          </Link>
-        </div>
+    <header className="sticky top-0 z-50 bg-gradient-to-r from-green-700 to-green-600 shadow-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
 
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/logos.png"
+            alt="Apni Dukaan"
+            width={44}
+            height={44}
+            className="h-10 w-10 rounded-xl bg-white p-1 shadow"
+            priority
+          />
+          <div>
+            <p className="text-base font-extrabold text-white tracking-tight">
+              <span className="text-white">Apni </span>
+              <span className="text-yellow-300">Dukaan</span>
+            </p>
+            <p className="text-[11px] text-green-100">
+              3 KM ke andar Home Delivery
+            </p>
+          </div>
+        </Link>
+
+        {/* Navigation */}
         {!isAdminRoute ? (
-          <nav className="flex items-center gap-2 sm:gap-3">
+          <nav className="flex flex-wrap items-center gap-2 sm:gap-3">
+
             {checkingSession ? null : isCustomerLoggedIn ? (
               <button
-                type="button"
                 onClick={() => void handleLogout()}
                 disabled={loggingOut}
-                className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-semibold text-green-900 hover:bg-amber-500 disabled:opacity-60 sm:text-sm"
+                className="rounded-xl bg-yellow-400 px-4 py-2 text-xs font-semibold text-green-900 shadow hover:bg-yellow-500 transition disabled:opacity-60 sm:text-sm"
               >
                 {loggingOut ? "..." : "Logout"}
               </button>
@@ -100,55 +131,65 @@ export function Navbar() {
               <>
                 <Link
                   href="/user-register"
-                  className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-semibold text-green-900 hover:bg-amber-500 sm:text-sm"
+                  className="rounded-xl bg-yellow-400 px-4 py-2 text-xs font-semibold text-green-900 shadow hover:bg-yellow-500 transition sm:text-sm"
                 >
                   Register
                 </Link>
                 <Link
                   href="/user-login"
-                  className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 sm:text-sm"
+                  className="rounded-xl bg-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/30 transition sm:text-sm"
                 >
                   Login
                 </Link>
               </>
             )}
+
             <Link
               href="/products"
-              className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 sm:text-sm"
+              className="rounded-xl bg-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/30 transition sm:text-sm"
             >
               Products
             </Link>
+
             <Link
               href="/cart"
-              className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 sm:text-sm"
+              className="relative rounded-xl bg-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/30 transition sm:text-sm"
             >
               Cart
+              {cartCount > 0 ? (
+                <span className="absolute -right-2 -top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-yellow-400 px-1 text-[10px] font-bold text-green-900 shadow">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              ) : null}
             </Link>
-            {isCustomerLoggedIn ? (
-              <Link
-                href="/orders"
-                className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 sm:text-sm"
-              >
-                Orders
-              </Link>
-            ) : null}
-            {isCustomerLoggedIn ? (
-              <Link
-                href="/profile"
-                className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 sm:text-sm"
-              >
-                Profile
-              </Link>
-            ) : null}
+
+            {isCustomerLoggedIn && (
+              <>
+                <Link
+                  href="/orders"
+                  className="rounded-xl bg-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/30 transition sm:text-sm"
+                >
+                  Orders
+                </Link>
+
+                <Link
+                  href="/profile"
+                  className="rounded-xl bg-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/30 transition sm:text-sm"
+                >
+                  Profile
+                </Link>
+              </>
+            )}
           </nav>
         ) : (
           <Link
             href="/products"
-            className="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20 sm:text-sm"
+            className="rounded-xl bg-white/20 px-4 py-2 text-xs font-semibold text-white hover:bg-white/30 transition sm:text-sm"
           >
             Back to Shop
           </Link>
         )}
+
       </div>
     </header>
   );

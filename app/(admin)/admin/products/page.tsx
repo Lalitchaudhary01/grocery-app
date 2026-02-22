@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { parseCategoryName } from "@/lib/category-name";
+
 type Category = { id: string; name: string };
 
 type Product = {
@@ -58,15 +60,6 @@ function formatINR(value: number) {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function categoryIcon(name: string) {
-  if (/aata|atta|anaaj|anaj|grain|rice|chawal|daal|dal/i.test(name)) return "🌾";
-  if (/oil|tel|ghee/i.test(name)) return "🛢️";
-  if (/masala|spice|salt|namak/i.test(name)) return "🧂";
-  if (/safai|clean|harpic|detergent/i.test(name)) return "🧹";
-  if (/soap|care|personal|shampoo/i.test(name)) return "🧴";
-  return "📦";
 }
 
 export default function AdminProductsPage() {
@@ -470,7 +463,7 @@ export default function AdminProductsPage() {
               >
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {categoryIcon(category.name)} {category.name}
+                    {parseCategoryName(category.name).label}
                   </option>
                 ))}
               </select>

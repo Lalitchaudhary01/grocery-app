@@ -14,7 +14,7 @@ type Category = {
 
 type CategoryForm = {
   name: string;
-  icon: string;
+  imageUrl: string;
   sortOrder: string;
   status: "active" | "inactive";
 };
@@ -24,25 +24,12 @@ type CategoriesResponse = {
   error?: string;
 };
 
-const DEFAULT_ICON = "📁";
-
 const EMPTY_FORM: CategoryForm = {
   name: "",
-  icon: "",
+  imageUrl: "",
   sortOrder: "1",
   status: "active",
 };
-
-function detectCategoryIcon(name: string): string {
-  const parsed = parseCategoryName(name);
-  if (parsed.icon) return parsed.icon;
-  if (/aata|atta|anaaj|anaj|grain|rice|chawal|daal|dal/i.test(name)) return "🌾";
-  if (/oil|tel|ghee/i.test(name)) return "🛢️";
-  if (/masala|spice|salt|namak/i.test(name)) return "🧂";
-  if (/safai|clean|harpic|detergent/i.test(name)) return "🧹";
-  if (/soap|care|personal|shampoo/i.test(name)) return "🧴";
-  return DEFAULT_ICON;
-}
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -93,7 +80,7 @@ export default function AdminCategoriesPage() {
     setEditingId(category.id);
     setForm({
       name: parsed.label,
-      icon: parsed.icon || detectCategoryIcon(category.name),
+      imageUrl: parsed.imageUrl || "",
       sortOrder: "1",
       status: "active",
     });
@@ -108,7 +95,7 @@ export default function AdminCategoriesPage() {
       setError(null);
 
       const payload = {
-        name: buildCategoryName(form.name, form.icon),
+        name: buildCategoryName(form.name, form.imageUrl),
       };
 
       const endpoint = editingId ? `/api/categories/${editingId}` : "/api/categories";
@@ -198,13 +185,26 @@ export default function AdminCategoriesPage() {
               ) : (
                 sortedCategories.map((category) => {
                   const parsed = parseCategoryName(category.name);
-                  const icon = parsed.icon || detectCategoryIcon(category.name);
                   const label = parsed.label;
+                  const imageUrl = parsed.imageUrl;
                   const productsCount = category._count?.products ?? 0;
 
                   return (
                     <tr key={category.id}>
-                      <td className="px-4 py-4 text-3xl">{icon}</td>
+                      <td className="px-4 py-4">
+                        {imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={imageUrl}
+                            alt={label}
+                            className="h-12 w-12 rounded-lg border border-neutral-200 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-100 text-xs font-bold text-neutral-600">
+                            {label.slice(0, 1).toUpperCase() || "C"}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-4 text-2xl font-bold text-neutral-900">{label}</td>
                       <td className="px-4 py-4">
                         <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-bold text-neutral-600">
@@ -263,18 +263,19 @@ export default function AdminCategoriesPage() {
 
             <div>
               <label className="mb-1 block text-sm font-semibold text-neutral-700">
-                Icon (Emoji) <span className="text-red-500">*</span>
+                Image URL
               </label>
               <input
-                value={form.icon}
-                onChange={(event) => setForm((prev) => ({ ...prev, icon: event.target.value }))}
-                placeholder="🥛"
-                required
+                value={form.imageUrl}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, imageUrl: event.target.value }))
+                }
+                placeholder="https://..."
                 disabled={saving}
                 className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none"
               />
               <p className="mt-1 text-xs text-neutral-500">
-                Ek emoji likho jo category ko represent kare.
+                Category card ke liye image link dalo (optional).
               </p>
             </div>
 
@@ -339,4 +340,3 @@ export default function AdminCategoriesPage() {
     </div>
   );
 }
-

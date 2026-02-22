@@ -6,7 +6,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { StoreStatusBanner } from "@/components/layout/StoreStatusBanner";
 
 export const metadata: Metadata = {
-  title: "Vivek Chaudhary Mohanpur Wale",
+  title: "Apni Dukaan - Grocery Delivery App",
   description: "3 KM ke andar Home Delivery",
   icons: {
     icon: "/logo-mark.svg",
