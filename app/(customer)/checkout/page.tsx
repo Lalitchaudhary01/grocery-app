@@ -39,6 +39,7 @@ type CreateOrderResponse = {
 };
 
 const SHOP_UPI_ID = "8923541428@axl";
+const SHOP_UPI_NUMBER = "8923541428";
 const SHOP_UPI_NAME = "Mrs Aneeta";
 type PaymentMethod = "UPI_QR" | "COD";
 
@@ -178,10 +179,10 @@ export default function CheckoutPage() {
     return `upi://pay?${params.toString()}`;
   }, []);
 
-  async function copyUpiId() {
+  async function copyNumber() {
     try {
-      await navigator.clipboard.writeText(SHOP_UPI_ID);
-      showSuccessToast("UPI ID copied.");
+      await navigator.clipboard.writeText(SHOP_UPI_NUMBER);
+      showSuccessToast("Number copied.");
     } catch {
       showErrorToast("Copy failed. Please copy manually.");
     }
@@ -520,6 +521,9 @@ export default function CheckoutPage() {
                 UPI ID: <span className="font-bold text-green-800">{SHOP_UPI_ID}</span>
               </p>
               <p className="text-sm text-neutral-700">
+                Number: <span className="font-bold text-green-800">{SHOP_UPI_NUMBER}</span>
+              </p>
+              <p className="text-sm text-neutral-700">
                 Name: <span className="font-bold text-green-800">{SHOP_UPI_NAME}</span>
               </p>
               <p className="text-sm text-neutral-700">
@@ -534,10 +538,10 @@ export default function CheckoutPage() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => void copyUpiId()}
+                  onClick={() => void copyNumber()}
                   className="inline-flex w-full items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-bold text-neutral-800 hover:bg-neutral-100"
                 >
-                  Copy UPI ID
+                  Copy Number
                 </button>
               </div>
               <p className="text-xs text-neutral-600">
