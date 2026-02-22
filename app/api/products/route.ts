@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const parsedProducts = products.map((product) => {
+    const parsedProducts = products.map((product: (typeof products)[number]) => {
       try {
         const parsed = parseProductDescription(product.description);
         const mrp =
