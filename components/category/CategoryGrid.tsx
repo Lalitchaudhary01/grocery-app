@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 
+import { optimizeImageUrl } from "@/lib/image";
 import { parseCategoryName } from "@/lib/category-name";
 
 type CategoryItem = {
@@ -24,28 +26,35 @@ export function CategoryGrid({ categories }: CategoryGridProps) {
     <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {categories.map((category) => {
         const parsed = parseCategoryName(category.name);
-        const imageUrl = parsed.imageUrl;
+        const imageUrl = optimizeImageUrl(parsed.imageUrl, { width: 480, height: 240 });
         return (
-        <Link
-          key={category.id}
-          href={`/products?categoryId=${category.id}`}
-          className="rounded-xl bg-white p-3 text-center shadow-sm ring-1 ring-neutral-200 transition duration-200 hover:-translate-y-0.5 hover:bg-green-50 hover:ring-green-200"
-        >
-          {imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageUrl}
-              alt={parsed.label}
-              className="mx-auto h-12 w-12 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-neutral-100 text-sm font-bold text-neutral-600">
-              {parsed.label.slice(0, 1).toUpperCase() || "C"}
+          <Link
+            key={category.id}
+            href={`/products?categoryId=${category.id}`}
+            className="overflow-hidden rounded-2xl bg-white text-center shadow-sm ring-1 ring-neutral-200 transition duration-200 hover:-translate-y-0.5 hover:bg-green-50 hover:ring-green-200"
+          >
+            <div className="relative h-24 w-full bg-[#edf3e6] sm:h-28">
+              {imageUrl ? (
+                <Image
+                  src={imageUrl}
+                  alt={parsed.label}
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-neutral-600">
+                  {parsed.label.slice(0, 1).toUpperCase() || "C"}
+                </div>
+              )}
             </div>
-          )}
-          <p className="text-sm font-semibold text-neutral-800">{parsed.label}</p>
-          <p className="mt-1 text-xs font-medium text-green-700">View Products</p>
-        </Link>
+            <div className="space-y-1 px-2 py-2.5 sm:px-3">
+              <p className="line-clamp-1 text-sm font-semibold text-neutral-800 sm:text-base">
+                {parsed.label}
+              </p>
+              <p className="text-xs font-medium text-green-700">View Products</p>
+            </div>
+          </Link>
         );
       })}
     </div>

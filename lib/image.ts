@@ -1,28 +1,43 @@
-function hasQueryParam(url: string, key: string): boolean {
-  try {
-    const value = new URL(url);
-    return value.searchParams.has(key);
-  } catch {
-    return false;
-  }
+function isCloudinaryImageUrl(value: string): boolean {
+  return value.includes("res.cloudinary.com") && value.includes("/image/upload/");
 }
 
-export function normalizeProductImageUrl(raw: string | null | undefined): string | null {
-  const value = (raw ?? "").trim();
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-
-    // Best-effort optimization for remote hosts that support transform params.
-    if (!hasQueryParam(url.toString(), "w")) url.searchParams.set("w", "1200");
-    if (!hasQueryParam(url.toString(), "q")) url.searchParams.set("q", "80");
-    if (!hasQueryParam(url.toString(), "auto")) url.searchParams.set("auto", "format");
-    if (!hasQueryParam(url.toString(), "fit")) url.searchParams.set("fit", "crop");
-
-    return url.toString();
-  } catch {
-    return value;
-  }
+export function normalizeProductImageUrl(source: string | null | undefined): string | null {
+  if (!source) return null;
+  const trimmed = source.trim();
+  if (!trimmed) return null;
+  return trimmed;
 }
 
+export function optimizeImageUrl(
+  source: string | null | undefined,
+  options?: {
+    width?: number;
+    height?: number;
+  },
+): string | null {
+  const normalized = normalizeProductImageUrl(source);
+  if (!normalized) return null;
+  if (!isCloudinaryImageUrl(normalized)) return normalized;
+
+  const transformations = ["f_auto", "q_auto"];
+  if (typeof options?.width === "number" && options.width > 0) {
+    transformations.push(`w_${Math.round(options.width)}`);
+  }
+  if (typeof options?.height === "number" && options.height > 0) {
+    transformations.push(`h_${Math.round(options.height)}`, "c_fill");
+  }
+
+  const marker = "/image/upload/";
+  const markerIndex = normalized.indexOf(marker);
+  if (markerIndex < 0) return normalized;
+
+  const prefix = normalized.slice(0, markerIndex + marker.length);
+  const suffix = normalized.slice(markerIndex + marker.length);
+  const suffixHead = suffix.split("/")[0] ?? "";
+  if (suffixHead.includes("f_auto") || suffixHead.includes("q_auto")) {
+    return normalized;
+  }
+
+  return `${prefix}${transformations.join(",")}/${suffix}`;
+}

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
 import { parseCategoryName } from "@/lib/category-name";
+import { optimizeImageUrl } from "@/lib/image";
 
 type Product = {
   id: string;
@@ -265,6 +266,10 @@ export default function ProductsPage() {
             <div className="space-y-2">
               {categories.map((category) => {
                 const parsedCategory = parseCategoryName(category.name);
+                const categoryImageUrl = optimizeImageUrl(parsedCategory.imageUrl, {
+                  width: 128,
+                  height: 128,
+                });
                 return (
                   <button
                     key={category.id}
@@ -277,13 +282,16 @@ export default function ProductsPage() {
                     }`}
                   >
                     <span className="inline-flex items-center gap-2">
-                      {parsedCategory.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={parsedCategory.imageUrl}
-                          alt={parsedCategory.label}
-                          className="h-5 w-5 rounded object-cover"
-                        />
+                      {categoryImageUrl ? (
+                        <span className="relative h-6 w-6 overflow-hidden rounded-md bg-neutral-100">
+                          <Image
+                            src={categoryImageUrl}
+                            alt={parsedCategory.label}
+                            fill
+                            sizes="24px"
+                            className="object-cover"
+                          />
+                        </span>
                       ) : (
                         <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-bold text-neutral-600">
                           {parsedCategory.label.slice(0, 1).toUpperCase() || "C"}
@@ -410,7 +418,7 @@ export default function ProductsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {displayedProducts.map((product) => {
+              {displayedProducts.map((product, index) => {
                 const inStock = product.stock > 0;
                 const mrp = product.mrp && product.mrp > product.price ? product.mrp : null;
                 const discountPercent =
@@ -426,7 +434,7 @@ export default function ProductsPage() {
                     className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <Link href={`/products/${product.id}`} className="block">
-                      <div className="relative h-44 w-full bg-[#edf3e6] sm:h-52">
+                      <div className="relative h-52 w-full bg-[#edf3e6] sm:h-60">
                         {inStock && discountPercent > 0 ? (
                           <span className="absolute left-3 top-3 z-10 rounded-md bg-red-500 px-2 py-1 text-xs font-bold text-white">
                             {discountPercent}% OFF
@@ -441,11 +449,16 @@ export default function ProductsPage() {
                           ❤
                         </span>
                         <Image
-                          src={product.imageUrl || FALLBACK_IMAGE}
+                          src={
+                            optimizeImageUrl(product.imageUrl, { width: 900, height: 680 }) ||
+                            FALLBACK_IMAGE
+                          }
                           alt={product.name}
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
-                          className="object-cover p-4"
+                          loading={index < 4 ? "eager" : "lazy"}
+                          fetchPriority={index < 2 ? "high" : "auto"}
+                          className="object-cover"
                         />
                       </div>
                     </Link>

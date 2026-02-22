@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { optimizeImageUrl } from "@/lib/image";
 
 export interface ProductCardItem {
   id: string;
@@ -37,11 +38,13 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
         ? Math.max(0, Math.round(((mrp - product.price) / mrp) * 100))
         : 0;
 
+  const imageUrl = optimizeImageUrl(product.imageUrl, { width: 640, height: 480 });
+
   return (
     <article className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
       <div className="relative aspect-[4/3] w-full bg-neutral-100">
         <Image
-          src={product.imageUrl || FALLBACK_IMAGE}
+          src={imageUrl || FALLBACK_IMAGE}
           alt={product.name}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
