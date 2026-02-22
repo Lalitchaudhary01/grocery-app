@@ -88,7 +88,9 @@ export async function reserveInventoryStock(
     select: { id: true, name: true, price: true, stock: true },
   });
 
-  const productById = new Map(products.map((product) => [product.id, product]));
+  const productById = new Map(
+    products.map((product: (typeof products)[number]) => [product.id, product]),
+  );
   const missingProductIds = productIds.filter((id) => !productById.has(id));
   if (missingProductIds.length > 0) {
     throw new ProductNotFoundError(missingProductIds);
