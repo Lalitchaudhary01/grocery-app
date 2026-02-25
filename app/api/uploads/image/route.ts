@@ -39,24 +39,39 @@ export async function POST(request: NextRequest) {
     const apiSecret = getRequiredEnv("CLOUDINARY_API_SECRET");
 
     const incoming = await request.formData();
-    const file = incoming.get("file");
+    const filePart = incoming.get("file");
     const folderRaw = incoming.get("folder");
     const folder = typeof folderRaw === "string" && folderRaw.trim().length > 0
       ? folderRaw.trim()
       : "grocery-app";
 
-    if (!(file instanceof File)) {
+    if (
+      !filePart ||
+      typeof filePart !== "object" ||
+      !("arrayBuffer" in filePart) ||
+      typeof (filePart as Blob).arrayBuffer !== "function"
+    ) {
       return NextResponse.json({ error: "Image file is required." }, { status: 400 });
     }
-    if (!file.type.startsWith("image/")) {
+
+    const file = filePart as Blob & { name?: string };
+    const contentType = typeof file.type === "string" ? file.type : "";
+    if (!contentType.startsWith("image/")) {
       return NextResponse.json({ error: "Only image files are allowed." }, { status: 400 });
+    }
+    const maxBytes = 10 * 1024 * 1024;
+    if (typeof file.size === "number" && file.size > maxBytes) {
+      return NextResponse.json(
+        { error: "Image is too large. Max size is 10MB." },
+        { status: 400 },
+      );
     }
 
     const timestamp = String(Math.floor(Date.now() / 1000));
     const signature = buildSignature({ folder, timestamp }, apiSecret);
 
     const outbound = new FormData();
-    outbound.append("file", file);
+    outbound.append("file", file, file.name || "upload-image");
     outbound.append("api_key", apiKey);
     outbound.append("timestamp", timestamp);
     outbound.append("signature", signature);
@@ -75,8 +90,14 @@ export async function POST(request: NextRequest) {
       | null;
 
     if (!uploadResponse.ok || !uploadBody?.secure_url) {
+      const cloudError = uploadBody?.error?.message || "Cloud upload failed.";
       return NextResponse.json(
-        { error: uploadBody?.error?.message || "Cloud upload failed." },
+        {
+          error:
+            process.env.NODE_ENV === "development"
+              ? `Cloudinary upload failed (${uploadResponse.status}): ${cloudError}`
+              : cloudError,
+        },
         { status: 400 },
       );
     }
