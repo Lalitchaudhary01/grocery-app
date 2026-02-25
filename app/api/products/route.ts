@@ -161,6 +161,8 @@ export async function POST(request: NextRequest) {
             isActive: parsed.data.isActive ?? true,
           }),
           price: parsed.data.price,
+          mrp: parsed.data.mrp ?? parsed.data.price,
+          unit: parsed.data.unit ?? "",
           stock: parsed.data.stock,
           imageUrl: normalizeProductImageUrl(parsed.data.imageUrl ?? null),
           categoryId: parsed.data.categoryId,
