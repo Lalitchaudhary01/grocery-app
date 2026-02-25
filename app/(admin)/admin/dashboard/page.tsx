@@ -327,8 +327,8 @@ export default async function AdminDashboardPage() {
     .slice(0, 6)
     .filter((row: { categoryId: string; categoryName: string; count: number }) => row.count > 0);
 
-  const pendingAndActiveOrders = recentOrdersTyped.filter((order: RecentOrderRow) =>
-    ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED"].includes(order.status),
+  const pendingOrders = recentOrdersTyped.filter(
+    (order: RecentOrderRow) => order.status === "PENDING",
   );
 
   const statCards = [
@@ -510,8 +510,8 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
 
-        {pendingAndActiveOrders.length === 0 ? (
-          <p className="px-5 py-6 text-lg text-neutral-600">Koi recent order nahi mila.</p>
+        {pendingOrders.length === 0 ? (
+          <p className="px-5 py-6 text-lg text-neutral-600">Koi pending order nahi mila.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[760px]">
@@ -526,7 +526,7 @@ export default async function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {pendingAndActiveOrders.slice(0, 5).map((order) => (
+                {pendingOrders.slice(0, 5).map((order) => (
                   <tr key={order.id} className="bg-white text-base text-neutral-800">
                     <td className="px-5 py-4 font-extrabold">#{order.id.slice(0, 8).toUpperCase()}</td>
                     <td className="px-5 py-4">

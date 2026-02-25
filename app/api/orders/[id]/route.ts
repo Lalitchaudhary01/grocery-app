@@ -260,7 +260,7 @@ export async function GET(
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
     }
 
-    if (isCustomer && customerPayload?.sub !== order.userId) {
+    if (!isAdmin && isCustomer && customerPayload?.sub !== order.userId) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 
