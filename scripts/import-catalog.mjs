@@ -3,195 +3,166 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const catalog = [
-  { category: 'Anaaj & Atta', products: [
-    ['Aashirvaad Atta 5kg','5 kg',245],
-    ['Chakki Fresh Atta 10kg','10 kg',460],
-    ['Maida','1 kg',52],
-    ['Suji','1 kg',44],
-    ['Besan','1 kg',92],
-    ['Multigrain Atta','5 kg',289],
-  ]},
 
-  { category: 'Chawal & Daal', products: [
-    ['India Gate Basmati 5kg','5 kg',420],
-    ['Sona Masoori Rice','5 kg',345],
-    ['Arhar Dal','1 kg',155],
-    ['Chana Dal','1 kg',95],
-    ['Moong Dal','1 kg',132],
-    ['Masoor Dal','1 kg',118],
-  ]},
+  // 🟢 Anaaj & Atta
+  {
+    category: 'Anaaj & Atta',
+    products: [
+      ['Aashirvaad Atta 5kg','5 kg',245],
+      ['Chakki Fresh Atta 10kg','10 kg',460],
+      ['Maida','1 kg',52],
+      ['Suji','1 kg',44],
+      ['Besan','1 kg',92],
+      ['Multigrain Atta','5 kg',289],
+      ['Poha','1 kg',74],
+    ]
+  },
 
-  { category: 'Tel & Ghee', products: [
-    ['Fortune Soya Oil','1 litre',135],
-    ['Mustard Oil','1 litre',165],
-    ['Sunflower Oil','1 litre',149],
-    ['Desi Ghee','500 g',330],
-    ['Vanaspati Ghee','1 litre',178],
-  ]},
+  // 🟢 Chawal & Daal
+  {
+    category: 'Chawal & Daal',
+    products: [
+      ['India Gate Basmati 5kg','5 kg',420],
+      ['Sona Masoori Rice','5 kg',345],
+      ['Arhar Dal','1 kg',155],
+      ['Chana Dal','1 kg',95],
+      ['Moong Dal','1 kg',132],
+      ['Masoor Dal','1 kg',118],
+    ]
+  },
 
-  { category: 'Masale & Namak', products: [
-    ['Tata Namak','1 kg',25],
-    ['Haldi Powder','200 g',42],
-    ['Mirch Powder','200 g',68],
-    ['Dhaniya Powder','200 g',55],
-    ['Garam Masala','100 g',64],
-  ]},
+  // 🟢 Sarson & Refined Oil
+  {
+    category: 'Cooking Oil',
+    products: [
+      ['Pansaari Mustard Oil','1 litre',160],
+      ['Pansaari Mustard Oil','2 litre',310],
+      ['Tanaara Mustard Oil','1 litre',165],
+      ['Til Oil','1 litre',210],
+      ['Fortune Refined Oil','1 litre',135],
+      ['Fortune Refined Oil','5 litre',650],
+      ['Chambal Refined Oil','1 litre',130],
+    ]
+  },
 
-  { category: 'Chini, Chai & Coffee', products: [
-    ['Sugar','1 kg',46],
-    ['Brown Sugar','500 g',54],
-    ['Tata Tea','500 g',285],
-    ['Red Label','500 g',270],
-    ['Bru Coffee','100 g',165],
-  ]},
+  // 🟢 Ghee
+  {
+    category: 'Ghee',
+    products: [
+      ['Param Ghee','1 litre',520],
+      ['Param Ghee','500 ml',260],
+      ['Sunvaliya Ghee','1 litre',540],
+      ['Sunvaliya Ghee','500 ml',275],
+      ['Sunvaliya Ghee','200 g',120],
+    ]
+  },
 
-  { category: 'Biscuit', products: [
-    ['Parle-G','800 g',48],
-    ['Good Day','200 g',38],
-    ['Marie Gold','250 g',42],
-    ['Bourbon','150 g',36],
-    ['Tiger Biscuit','150 g',28],
-  ]},
+  // 🟢 Washing Powder
+  {
+    category: 'Washing Powder',
+    products: [
+      ['Sargam Power','5 kg',420],
+      ['Sargam Power','3 kg',260],
+      ['Sargam Power','2 kg',180],
+      ['Tide Power','5 kg',480],
+      ['Tide Power Rose','1 kg',125],
+      ['Selzer Ulta Shine','5 kg',410],
+      ['Ghadi Power','5 kg',390],
+      ['Surf Excel','1 kg',245],
+      ['Fena Power','1 kg',95],
+      ['Rin','1 kg',110],
+    ]
+  },
 
-  { category: 'Namkeen', products: [
-    ['Haldiram Mixture','200 g',62],
-    ['Aloo Bhujia','200 g',58],
-    ['Salted Peanuts','200 g',48],
-    ['Moong Dal Namkeen','200 g',52],
-  ]},
+  // 🟢 Soap & Body Care
+  {
+    category: 'Soap & Body Care',
+    products: [
+      ['No.1 Soap','100 g',28],
+      ['Lifebuoy','150 g',34],
+      ['Lux','150 g',35],
+      ['Dove','100 g',58],
+      ['Pears','100 g',52],
+    ]
+  },
 
-  { category: 'Chips & Wafers', products: [
-    ['Lays Classic','52 g',20],
-    ['Kurkure','90 g',20],
-    ['Bingo','60 g',20],
-    ['Uncle Chips','50 g',20],
-  ]},
+  // 🟢 Tea
+  {
+    category: 'Tea',
+    products: [
+      ['Taj Mahal Tea','100 g',60],
+      ['Taj Mahal Tea','250 g',150],
+      ['Taj Mahal Tea','500 g',285],
+      ['Double Diamond Tea','250 g',120],
+      ['Tata Gold','250 g',145],
+      ['Tata Premium','250 g',135],
+      ['Mohini Tea','250 g',95],
+      ['Aag Tea','250 g',90],
+    ]
+  },
 
-  { category: 'Noodles & Pasta', products: [
-    ['Maggi','280 g',56],
-    ['Yippee','280 g',60],
-    ['Pasta','500 g',88],
-    ['Vermicelli','500 g',52],
-  ]},
+  // 🟢 Biscuit
+  {
+    category: 'Biscuit',
+    products: [
+      ['Parle-G','800 g',48],
+      ['Twenty Biscuit','200 g',20],
+      ['Coconut Biscuit','200 g',30],
+      ['Bourbon','150 g',36],
+      ['Butter Biscuit','200 g',40],
+    ]
+  },
 
-  { category: 'Cold Drinks', products: [
-    ['Coca Cola','750 ml',40],
-    ['Pepsi','750 ml',40],
-    ['Sprite','750 ml',40],
-    ['Thums Up','750 ml',40],
-  ]},
+  // 🟢 Namkeen
+  {
+    category: 'Namkeen',
+    products: [
+      ['Royal Mixture','400 g',85],
+      ['Makhana Mixture','200 g',95],
+      ['Palak Mixture','200 g',60],
+      ['Heeng Papdi','200 g',55],
+      ['Aloo Bhujia','200 g',58],
+      ['Navratan Mixture','200 g',62],
+      ['Teekha Meetha','200 g',60],
+    ]
+  },
 
-  { category: 'Packaged Water', products: [
-    ['Bisleri','1 litre',20],
-    ['Kinley','1 litre',20],
-    ['Rail Neer','1 litre',15],
-  ]},
+  // 🟢 Sauce
+  {
+    category: 'Sauce',
+    products: [
+      ['Kisaan Ketchup','1 litre',110],
+      ['Kisaan Pouch','50 pack',50],
+      ['Mini Sauce Pack','10 pack',10],
+    ]
+  },
 
-  { category: 'Juice & Beverages', products: [
-    ['Frooti','200 ml',10],
-    ['Real Juice','1 litre',110],
-    ['Tropicana','1 litre',115],
-  ]},
+  // 🟢 Dry Fruits
+  {
+    category: 'Dry Fruits',
+    products: [
+      ['Almond','250 g',245],
+      ['Cashew','250 g',295],
+      ['Raisins','250 g',145],
+      ['Anjeer','250 g',310],
+      ['Walnut','250 g',350],
+      ['Makhana','250 g',190],
+    ]
+  },
 
-  { category: 'Breakfast Items', products: [
-    ['Cornflakes','500 g',165],
-    ['Oats','1 kg',178],
-    ['Chocos','375 g',185],
-    ['Daliya','500 g',62],
-  ]},
+  // 🟢 Cold Drinks
+  {
+    category: 'Cold Drinks',
+    products: [
+      ['Coca Cola','750 ml',40],
+      ['Pepsi','750 ml',40],
+      ['Sprite','750 ml',40],
+      ['Thums Up','750 ml',40],
+      ['Sting','250 ml',20],
+      ['Red Bull','250 ml',125],
+    ]
+  },
 
-  { category: 'Sauces & Pickle', products: [
-    ['Tomato Ketchup','500 g',95],
-    ['Chilli Sauce','200 g',65],
-    ['Soy Sauce','200 ml',78],
-    ['Mango Pickle','500 g',125],
-  ]},
-
-  { category: 'Washing Powder', products: [
-    ['Surf Excel','1 kg',245],
-    ['Ariel','1 kg',235],
-    ['Ghadi','1 kg',98],
-    ['Wheel','1 kg',85],
-  ]},
-
-  { category: 'Bathroom Cleaner', products: [
-    ['Harpic','500 ml',98],
-    ['Lizol','500 ml',110],
-    ['Domex','500 ml',95],
-  ]},
-
-  { category: 'Dishwash', products: [
-    ['Vim Bar','200 g',10],
-    ['Vim Liquid','500 ml',125],
-    ['Pril','500 ml',118],
-  ]},
-
-  { category: 'Soap & Body Care', products: [
-    ['Lux','150 g',35],
-    ['Lifebuoy','150 g',34],
-    ['Dove','100 g',58],
-    ['Santoor','150 g',32],
-  ]},
-
-  { category: 'Shampoo & Hair Care', products: [
-    ['Clinic Plus','340 ml',182],
-    ['Head & Shoulders','340 ml',210],
-    ['Hair Oil','300 ml',168],
-  ]},
-
-  { category: 'Oral Care', products: [
-    ['Colgate','200 g',112],
-    ['Pepsodent','150 g',95],
-    ['Toothbrush','1 pc',35],
-    ['Mouthwash','250 ml',125],
-  ]},
-
-  { category: 'Plastic Items', products: [
-    ['Balti 15L','1 pc',220],
-    ['Mug','1 pc',48],
-    ['Water Bottle','1 pc',95],
-  ]},
-
-  { category: 'Kitchen Tools', products: [
-    ['Gas Lighter','1 pc',85],
-    ['Tea Strainer','1 pc',45],
-    ['Steel Spoon','1 pc',35],
-  ]},
-
-  { category: 'Daily Use Items', products: [
-    ['Matchbox','10 pcs',22],
-    ['Candle','6 pcs',36],
-    ['Battery AA','4 pcs',75],
-  ]},
-
-  { category: 'Dry Fruits', products: [
-    ['Almond','250 g',245],
-    ['Cashew','250 g',295],
-    ['Raisins','250 g',145],
-  ]},
-
-  { category: 'Puja Saaman', products: [
-    ['Dhoop','20 sticks',42],
-    ['Camphor','100 g',65],
-    ['Cotton Wicks','100 pcs',40],
-  ]},
-
-  { category: 'Baby Care', products: [
-    ['Baby Powder','200 g',165],
-    ['Baby Soap','75 g',62],
-    ['Diapers','20 pcs',325],
-  ]},
-
-  { category: 'Energy Drinks', products: [
-    ['Red Bull','250 ml',125],
-    ['Sting','250 ml',20],
-  ]},
-
-  { category: 'Shaving & Grooming', products: [
-    ['Shaving Cream','70 g',85],
-    ['Razor','1 pc',45],
-    ['After Shave','100 ml',165],
-  ]},
 ];
 
 function labelFromCategoryName(name) {
@@ -257,6 +228,9 @@ async function main() {
           data: {
             description,
             price,
+            mrp,
+            unit,
+            discount: null,
             stock,
             imageUrl: null,
           },
@@ -268,6 +242,9 @@ async function main() {
             name: productName,
             description,
             price,
+            mrp,
+            unit,
+            discount: null,
             stock,
             imageUrl: null,
             categoryId: category.id,

@@ -76,8 +76,13 @@ model Product {
   id          String    @id @default(uuid())
   name        String
   description String?
-  price       Float
+
+  price       Float     // selling price
+  mrp         Float     // original price
+  discount    Float?    // optional manual override
   stock       Int
+  unit        String
+
   imageUrl    String?
 
   category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -90,7 +95,6 @@ model Product {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
-
 model Cart {
   id        String     @id @default(uuid())
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
